@@ -1,0 +1,3021 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TableDeck — Laptop Table & Mobile Hand Card Game Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PeerJS for Serverless WebRTC P2P (GitHub Pages compatible) -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- MQTT.js over WSS for Automatic iPhone / Firewall Relay Fallback -->
+    <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
+    <!-- QRCode.js for scanning Room Join URL on Mobile -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #070b14;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* Casino Felt Table Surface */
+        .casino-table {
+            background: radial-gradient(ellipse at center, #0f5132 0%, #0a3622 58%, #051b11 100%);
+            box-shadow:
+                inset 0 0 80px rgba(0, 0, 0, 0.75),
+                0 0 0 12px #2b1d14,
+                0 0 0 15px #eab308,
+                0 25px 60px rgba(0, 0, 0, 0.85);
+            position: relative;
+        }
+        .casino-table::before {
+            content: '';
+            position: absolute;
+            inset: 18px;
+            border: 2px dashed rgba(234, 179, 8, 0.22);
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        /* Playing Card Styling */
+        .playing-card {
+            width: 78px;
+            height: 112px;
+            background: linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%);
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0,0,0,0.12);
+            position: relative;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+            color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .playing-card.card-lg {
+            width: 96px;
+            height: 138px;
+            padding: 8px;
+            border-radius: 12px;
+        }
+        .playing-card.card-sm {
+            width: 58px;
+            height: 84px;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        .playing-card.red-suit {
+            color: #dc2626;
+        }
+        .playing-card.black-suit {
+            color: #0f172a;
+        }
+        .playing-card.selected-card {
+            transform: translateY(-24px) scale(1.08) !important;
+            box-shadow: 0 16px 30px rgba(16, 185, 129, 0.55), 0 0 0 3px #10b981 !important;
+            z-index: 40 !important;
+        }
+        .playing-card.invalid-card {
+            opacity: 0.48;
+            filter: grayscale(35%);
+        }
+        .playing-card-back {
+            background: repeating-linear-gradient(
+                45deg,
+                #1e3a8a,
+                #1e3a8a 6px,
+                #172554 6px,
+                #172554 12px
+            );
+            border: 3px solid #f8fafc;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+        }
+
+        /* Card Fly-In Animation on Table */
+        @keyframes cardThrowIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.4) translateY(80px) rotate(-20deg);
+            }
+            70% {
+                opacity: 1;
+                transform: scale(1.08) translateY(-6px) rotate(4deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0) rotate(var(--card-rot, 0deg));
+            }
+        }
+        .animate-card-throw {
+            animation: cardThrowIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Emoji Float Animation */
+        @keyframes floatUpEmoji {
+            0% {
+                opacity: 0;
+                transform: translateY(10px) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(-10px) scale(1.25);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(-42px) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-60px) scale(0.8);
+            }
+        }
+        .emoji-pop {
+            animation: floatUpEmoji 2.2s ease-out forwards;
+        }
+
+        /* Active Turn Pulse */
+        @keyframes turnPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7), 0 0 20px rgba(16, 185, 129, 0.6);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(16, 185, 129, 0), 0 0 32px rgba(16, 185, 129, 0.9);
+            }
+        }
+        .active-seat-ring {
+            animation: turnPulse 1.8s infinite;
+            border-color: #10b981 !important;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.6);
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
+
+    <!-- ================= TOP GLOBAL NAVIGATION BAR ================= -->
+    <header id="topNavbar" class="h-14 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-3 sm:px-6 flex items-center justify-between z-40 shrink-0">
+        <div class="flex items-center gap-2.5">
+            <button onclick="returnToLanding()" class="flex items-center gap-2 text-left group focus:outline-none" title="Return to Role Selection">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-900/40 group-hover:scale-105 transition">
+                    <i class="fa-solid fa-layer-group text-white text-lg"></i>
+                </div>
+                <div>
+                    <span class="font-display font-bold text-base sm:text-lg tracking-tight text-white flex items-center gap-1.5">
+                        TableDeck <span class="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">P2P Hub</span>
+                    </span>
+                </div>
+            </button>
+
+            <!-- Active Room Badge (When in session) -->
+            <div id="navRoomBadge" class="hidden items-center gap-2 ml-2 pl-3 border-l border-slate-800">
+                <span class="text-xs text-slate-400 hidden sm:inline">Room:</span>
+                <button onclick="openQRModal()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center gap-2 transition" title="Show QR Code & Join Instructions">
+                    <span id="navRoomCode" class="font-mono font-bold text-emerald-400 tracking-wider text-sm">----</span>
+                    <i class="fa-solid fa-qrcode text-xs text-slate-300"></i>
+                </button>
+                <span id="navNetStatus" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden md:inline-flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> P2P Ready
+                </span>
+            </div>
+        </div>
+
+        <!-- Right Controls -->
+        <div class="flex items-center gap-2">
+            <!-- Toggle Split-Screen Phone Simulator (When hosting on Laptop) -->
+            <button id="btnToggleSimDrawer" onclick="toggleSimulatorDrawer()" class="hidden px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 transition items-center gap-1.5">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+                <span id="simDrawerBtnText">Phone Simulator Dock</span>
+            </button>
+
+            <!-- Sound Toggle -->
+            <button id="btnSoundToggle" onclick="toggleSound()" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 transition" title="Toggle Sound Effects">
+                <i id="soundIcon" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+
+            <!-- GitHub Pages Export Modal Trigger -->
+            <button onclick="openGithubModal()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
+                <i class="fa-brands fa-github text-sm"></i>
+                <span class="hidden sm:inline">Host on GitHub</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= 1. LANDING / ROLE SELECTION VIEW ================= -->
+    <main id="landingView" class="flex-1 flex flex-col justify-center items-center p-4 sm:p-8 relative overflow-y-auto">
+        <!-- Decorative Ambient Glows -->
+        <div class="absolute top-10 left-1/4 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-10 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-5xl w-full z-10 my-auto">
+            <!-- Hero Header -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
+                    <i class="fa-solid fa-wifi"></i> Central Laptop Display + Mobile Player Hand Controllers
+                </div>
+                <h1 class="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-3">
+                    Your Laptop is the <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Card Table.</span><br>
+                    Your Phones are the <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-400">Private Hands.</span>
+                </h1>
+                <p class="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base">
+                    Host the shared tabletop screen on a central laptop or TV. Every player joins from their own smartphone via a 4-letter Room Code or QR scan to view their secret cards and swipe to throw them onto the laptop table!
+                </p>
+            </div>
+
+            <!-- Instant Split-Screen Demo Banner -->
+            <div class="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-emerald-950/80 border border-indigo-500/30 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-xl shrink-0">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-base sm:text-lg">Testing on a Single Device Right Now?</h3>
+                        <p class="text-xs sm:text-sm text-slate-300">
+                            Launch our <strong>Interactive Split-Screen Mode</strong> to see the Central Laptop Table alongside live Virtual Mobile Phone Controllers on one screen!
+                        </p>
+                    </div>
+                </div>
+                <button onclick="startInstantSplitScreenDemo()" class="w-full sm:w-auto shrink-0 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-emerald-500 hover:from-indigo-400 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2 transition transform hover:scale-[1.02]">
+                    <i class="fa-solid fa-play"></i> Try Split-Screen Demo
+                </button>
+            </div>
+
+            <!-- Two Main Role Cards: Host on Laptop vs Join on Mobile -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- CARD 1: HOST ON LAPTOP (CENTRAL TABLE DISPLAY) -->
+                <div class="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 shadow-2xl flex flex-col justify-between transition">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold uppercase tracking-wider">
+                                Step 1 • Central Screen
+                            </span>
+                            <i class="fa-solid fa-laptop text-2xl text-emerald-400"></i>
+                        </div>
+                        <h2 class="font-display text-2xl font-bold text-white mb-1">Host on Laptop / TV</h2>
+                        <p class="text-xs text-slate-400 mb-5">
+                            Turns this screen into the shared casino tabletop showing thrown cards, player seats, scores, and room QR code.
+                        </p>
+
+                        <!-- Host Setup Form -->
+                        <div class="space-y-4">
+                            <!-- Game Mode Selector -->
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Select Card Game Mode</label>
+                                <select id="hostGameMode" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                                    <option value="trick">♠️ Trick-Taking Classic (Callbreak / Spades - Follow Suit)</option>
+                                    <option value="shedding">🔥 Crazy Eights / UNO-Style Shedding (Wild 8s, +2, Skip, Reverse)</option>
+                                    <option value="showdown">👑 Teen Patti / 3-Card High Showdown (Trail, Sequence, Flush)</option>
+                                    <option value="sandbox">🎲 Free Table / Custom Rules Sandbox (Play Any Card, Draw, Flip)</option>
+                                </select>
+                            </div>
+
+                            <!-- Number of Players & AI Fill -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Table Seats (2-8)</label>
+                                    <select id="hostMaxPlayers" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                                        <option value="2">2 Players (Duel)</option>
+                                        <option value="3">3 Players</option>
+                                        <option value="4" selected>4 Players (Classic)</option>
+                                        <option value="5">5 Players</option>
+                                        <option value="6">6 Players</option>
+                                        <option value="8">8 Players (Party)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Empty Seats</label>
+                                    <select id="hostBotFill" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                                        <option value="sim" selected>Virtual Phones + Bots</option>
+                                        <option value="wait">Wait for Real Phones</option>
+                                        <option value="bots">Auto-Fill with AI Bots</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="startLaptopHost()" class="mt-6 w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/50 flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-display"></i> Launch Central Laptop Table
+                    </button>
+                </div>
+
+                <!-- CARD 2: JOIN ON MOBILE PHONE (PLAYER HAND CONTROLLER) -->
+                <div class="bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-2xl p-6 shadow-2xl flex flex-col justify-between transition">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="px-3 py-1 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold uppercase tracking-wider">
+                                Step 2 • Player Phone
+                            </span>
+                            <i class="fa-solid fa-mobile-screen text-2xl text-amber-400"></i>
+                        </div>
+                        <h2 class="font-display text-2xl font-bold text-white mb-1">Join on Mobile Phone</h2>
+                        <p class="text-xs text-slate-400 mb-5">
+                            Connect your phone to the central laptop table using the 4-letter Room Code displayed on the laptop screen.
+                        </p>
+
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">4-Digit Room PIN / Code</label>
+                                    <input id="joinRoomCodeInput" type="text" maxlength="8" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text" placeholder="e.g. 4829" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base font-mono font-bold uppercase tracking-widest text-amber-400 focus:outline-none focus:border-amber-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Your Player Name</label>
+                                    <input id="joinPlayerNameInput" type="text" maxlength="14" autocomplete="off" placeholder="Alex" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+                                </div>
+                            </div>
+
+                            <!-- Avatar Picker -->
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Pick Your Avatar</label>
+                                <div id="avatarPickerGrid" class="grid grid-cols-8 gap-1.5">
+                                    <button type="button" onclick="selectJoinAvatar('😎', this)" class="avatar-btn py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-lg">😎</button>
+                                    <button type="button" onclick="selectJoinAvatar('🦊', this)" class="avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg">🦊</button>
+                                    <button type="button" onclick="selectJoinAvatar('🐯', this)" class="avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg">🐯</button>
+                                    <button type="button" onclick="selectJoinAvatar('🐼', this)" class="avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg">🐼</button>
+                                    <button type="button" onclick="selectJoinAvatar('🦁', this)" class="avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg">🦁</button>
+                                    <button type="button" onclick="selectJoinAvatar('🐸', this)" class="avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg">🐸</button>
+                                    <button type="button" onclick="selectJoinAvatar('🦄', this)" class="avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg">🦄</button>
+                                    <button type="button" onclick="selectJoinAvatar('🤖', this)" class="avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg">🤖</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btnConnectMobile" onclick="startMobileClient()" class="mt-6 w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-900/40 flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-mobile-screen-button"></i> Connect iPhone / Android Hand Controller
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- ================= 2. CENTRAL LAPTOP TABLE DISPLAY VIEW ================= -->
+    <section id="laptopTableView" class="hidden flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        <!-- LEFT / MAIN: CENTRAL CASINO TABLE DISPLAY -->
+        <div class="flex-1 flex flex-col justify-between p-2 sm:p-4 overflow-hidden relative">
+            
+            <!-- Table Control Sub-Header -->
+            <div class="bg-slate-900/85 backdrop-blur-md border border-slate-800 rounded-2xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 z-20">
+                <!-- Left: Mode & Seat Controls -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+                        <span class="text-[11px] text-slate-400 font-medium">Mode:</span>
+                        <select id="liveGameModeSelect" onchange="changeGameModeLive(this.value)" class="bg-transparent text-xs font-bold text-emerald-400 focus:outline-none cursor-pointer">
+                            <option value="trick" class="bg-slate-900 text-white">♠️ Trick-Taking Classic</option>
+                            <option value="shedding" class="bg-slate-900 text-white">🔥 Crazy Eights / UNO-Style</option>
+                            <option value="showdown" class="bg-slate-900 text-white">👑 Teen Patti 3-Card Showdown</option>
+                            <option value="sandbox" class="bg-slate-900 text-white">🎲 Free Table Sandbox</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+                        <span class="text-[11px] text-slate-400 font-medium">Players:</span>
+                        <select id="livePlayerCountSelect" onchange="changeSeatCountLive(this.value)" class="bg-transparent text-xs font-bold text-amber-400 focus:outline-none cursor-pointer">
+                            <option value="2" class="bg-slate-900 text-white">2 Seats</option>
+                            <option value="3" class="bg-slate-900 text-white">3 Seats</option>
+                            <option value="4" selected class="bg-slate-900 text-white">4 Seats</option>
+                            <option value="5" class="bg-slate-900 text-white">5 Seats</option>
+                            <option value="6" class="bg-slate-900 text-white">6 Seats</option>
+                            <option value="7" class="bg-slate-900 text-white">7 Seats</option>
+                            <option value="8" class="bg-slate-900 text-white">8 Seats</option>
+                        </select>
+                    </div>
+
+                    <label class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800 text-[11px] text-slate-300 cursor-pointer" title="Automatically fill empty seats with virtual players when dealing">
+                        <input id="chkAutoFillSeats" type="checkbox" checked class="accent-emerald-500 rounded">
+                        <span>Auto-Fill Empty Seats</span>
+                    </label>
+
+                    <button onclick="addSimulatedPhoneSeat()" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 flex items-center gap-1 transition" title="Add Virtual Phone or AI Player">
+                        <i class="fa-solid fa-user-plus text-emerald-400"></i> +Seat
+                    </button>
+
+                    <button onclick="openManagePlayersModal()" class="px-2.5 py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-xs font-semibold text-rose-300 border border-rose-500/30 flex items-center gap-1 transition" title="Manage or Remove Players from Laptop">
+                        <i class="fa-solid fa-users-gear text-rose-400"></i> Manage / Remove Players
+                    </button>
+                </div>
+
+                <!-- Center Status Banner -->
+                <div id="tableAnnouncementBanner" class="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold tracking-wide flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="tableAnnouncementText">Waiting for players to throw cards...</span>
+                </div>
+
+                <!-- Right: Deal / +1 Card / Collect / Showdown Buttons -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button id="btnShowdownReveal" onclick="evaluateShowdownNow()" class="hidden px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow">
+                        <i class="fa-solid fa-eye"></i> Showdown Reveal
+                    </button>
+                    <button id="btnDealOneMore" onclick="dealOneMoreCardToAll()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs font-bold transition" title="Deal +1 extra card to every seated player">
+                        <i class="fa-solid fa-plus text-indigo-400 mr-0.5"></i> +1 Card All
+                    </button>
+                    <button id="btnCollectTablePile" onclick="clearTableTrick()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition" title="Clear or award cards currently on table">
+                        <i class="fa-solid fa-broom text-amber-400 mr-1"></i> Clear Table
+                    </button>
+                    <button id="btnTopDealCards" onclick="dealNewRound()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-950 transition flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                        <i class="fa-solid fa-shuffle"></i> Deal Cards
+                    </button>
+                </div>
+            </div>
+
+            <!-- CENTRAL FELT CASINO TABLE AREA -->
+            <div class="flex-1 flex items-center justify-center relative my-2 py-6 px-4">
+                <div id="casinoTableFelt" class="casino-table w-full max-w-4xl h-full min-h-[390px] sm:min-h-[460px] rounded-[110px] sm:rounded-[180px] flex flex-col items-center justify-center relative p-6">
+
+                    <!-- Dynamic Player Seats Container (Positioned radially around table perimeter) -->
+                    <div id="tableSeatsContainer" class="absolute inset-0 pointer-events-none"></div>
+
+                    <!-- CENTER TABLE HUD: Mode Rules Info + Active Suit / Trump + Thrown Cards Arena -->
+                    <div class="z-10 flex flex-col items-center justify-center w-full max-w-lg text-center pointer-events-auto">
+                        
+                        <!-- Top Mini Info Pill inside Felt -->
+                        <div class="flex flex-wrap items-center justify-center gap-2 mb-3">
+                            <span id="feltModeBadge" class="px-2.5 py-0.5 rounded-full bg-black/40 border border-white/10 text-[11px] font-semibold text-emerald-300">
+                                Trick-Taking • Trump: ♠ Spades
+                            </span>
+                            <span id="feltLeadSuitBadge" class="px-2.5 py-0.5 rounded-full bg-black/40 border border-white/10 text-[11px] font-semibold text-amber-300">
+                                Lead Suit: Any
+                            </span>
+                            <span id="feltDeckCountBadge" class="px-2.5 py-0.5 rounded-full bg-black/40 border border-white/10 text-[11px] font-semibold text-slate-300">
+                                Deck: 0
+                            </span>
+                        </div>
+
+                        <!-- CENTRAL THROWN CARDS DROP ZONE -->
+                        <div id="thrownCardsArena" class="min-h-[175px] w-full flex flex-wrap items-center justify-center gap-3 px-4 py-3 rounded-3xl bg-black/25 border border-white/10 backdrop-blur-[2px] relative">
+                            <!-- Empty State when no cards thrown yet -->
+                            <div id="emptyArenaPrompt" class="text-center py-4 px-4 flex flex-col items-center">
+                                <div class="text-emerald-300/70 text-2xl mb-1">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </div>
+                                <p class="text-xs sm:text-sm font-semibold text-emerald-100/90">
+                                    Table Ready — Waiting for First Card Throw
+                                </p>
+                                <p class="text-[11px] text-emerald-200/60 mt-0.5 mb-3">
+                                    Throw a card from your iPhone / Mobile Controller or use the Phone Simulator Dock on the right!
+                                </p>
+                                <div class="flex flex-wrap items-center justify-center gap-2">
+                                    <button id="btnCenterDealCards" onclick="dealNewRound()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-lg transition flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                                        <i class="fa-solid fa-shuffle"></i> Deal / Redeal Cards Now
+                                    </button>
+                                    <button onclick="openQRModal()" class="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold text-xs transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-mobile-screen"></i> Connect iPhone (PIN: <span id="arenaRoomCodeText" class="font-mono underline">----</span>)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trick / Round Winner Toast Banner inside Table -->
+                        <div id="roundResultToast" class="hidden mt-3 px-4 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg items-center gap-2 animate-bounce">
+                            <i class="fa-solid fa-trophy"></i>
+                            <span id="roundResultText">Player won the trick!</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Bottom Quick Bar on Laptop -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                <div class="flex items-center gap-2">
+                    <span class="font-semibold text-slate-300"><i class="fa-solid fa-circle-info text-emerald-400 mr-1"></i>How to Connect Phones:</span>
+                    <span>Open this page on any phone & enter Room Code <strong id="bottomBarRoomCode" class="text-emerald-400 font-mono">----</strong>, or click <strong>Room QR</strong> above.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="triggerBotMoveIfNeeded(true)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold">
+                        <i class="fa-solid fa-robot text-indigo-400 mr-1"></i> Auto-Play Current Turn
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT / BOTTOM DOCK: INTERACTIVE VIRTUAL MOBILE CONTROLLERS (SPLIT-SCREEN SIMULATOR) -->
+        <aside id="simulatorDock" class="w-full lg:w-[410px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col shrink-0 z-30 shadow-2xl">
+            <!-- Simulator Dock Header -->
+            <div class="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-xs">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-xs font-bold text-white uppercase tracking-wider">Mobile Hand Simulator</h3>
+                        <p class="text-[10px] text-slate-400">Inspect & throw cards from any player's phone</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <label class="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                        <input id="chkAutoSwitchTurn" type="checkbox" checked class="accent-emerald-500 rounded">
+                        <span>Auto-Follow Turn</span>
+                    </label>
+                    <button onclick="toggleSimulatorDrawer()" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player Phone Switcher Tabs -->
+            <div id="simPlayerTabs" class="flex items-center gap-1 p-2 bg-slate-900 border-b border-slate-800 overflow-x-auto">
+                <!-- Populated dynamically with each player seat -->
+            </div>
+
+            <!-- Simulated Mobile Phone Frame -->
+            <div class="flex-1 p-3 flex flex-col overflow-y-auto bg-slate-950/60">
+                <div class="w-full max-w-[360px] mx-auto flex-1 rounded-[28px] border-4 border-slate-700 bg-slate-900 shadow-2xl overflow-hidden flex flex-col justify-between relative">
+                    <!-- Phone Notch Bar -->
+                    <div class="bg-slate-950 px-4 py-1.5 flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-800">
+                        <span id="simPhoneHeaderName" class="font-bold text-white">Player 1's Phone</span>
+                        <span id="simPhoneCardCount" class="text-emerald-400 font-semibold">0 Cards</span>
+                    </div>
+
+                    <!-- Phone Turn Banner -->
+                    <div id="simPhoneTurnBanner" class="px-3 py-2 text-center text-xs font-bold bg-emerald-600 text-white">
+                        YOUR TURN TO THROW A CARD!
+                    </div>
+
+                    <!-- Phone Context Info & Special Controls -->
+                    <div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-[11px] bg-slate-950/90 px-3 py-2 rounded-xl border border-slate-800">
+                            <span id="simPhoneRuleHint" class="text-slate-300">Tap a card below, then tap Throw!</span>
+                            <button onclick="toggleSimPlayerBotMode()" id="btnSimBotToggle" class="px-2 py-0.5 rounded bg-slate-800 text-[10px] font-semibold text-slate-300 hover:bg-slate-700">
+                                Mode: Human
+                            </button>
+                        </div>
+
+                        <!-- Wild Suit Picker (Shown when throwing an 8 in Crazy Eights) -->
+                        <div id="simWildSuitPicker" class="hidden p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-center">
+                            <p class="text-[11px] font-bold text-amber-300 mb-1.5">Wild 8! Pick Next Suit:</p>
+                            <div class="grid grid-cols-4 gap-1.5">
+                                <button onclick="confirmWildSuit('♠', true)" class="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-base border border-slate-700">♠</button>
+                                <button onclick="confirmWildSuit('♥', true)" class="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-red-500 font-bold text-base border border-slate-700">♥</button>
+                                <button onclick="confirmWildSuit('♦', true)" class="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-red-500 font-bold text-base border border-slate-700">♦</button>
+                                <button onclick="confirmWildSuit('♣', true)" class="py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-base border border-slate-700">♣</button>
+                            </div>
+                        </div>
+
+                        <!-- Private Hand Cards Fan / Horizontal Scroll -->
+                        <div class="my-auto py-3">
+                            <div id="simPhoneHandContainer" class="flex items-center justify-center flex-wrap gap-1.5 min-h-[125px] px-1">
+                                <!-- Cards rendered here -->
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons on Simulated Phone -->
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-1.5">
+                                <button id="btnSimThrowCard" onclick="throwSelectedCardFromPhone(true)" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 transition">
+                                    <i class="fa-solid fa-paper-plane"></i> Throw Card to Laptop
+                                </button>
+                                <button id="btnSimDrawCard" onclick="playerDrawCard(getActiveSimPlayerId())" class="hidden px-3 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition">
+                                    +Draw
+                                </button>
+                                <button id="btnSimThrowFaceDown" onclick="throwSelectedCardFromPhone(true, true)" class="hidden px-2.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[11px] border border-slate-700 transition" title="Throw card face-down">
+                                    <i class="fa-solid fa-eye-slash"></i> Blind
+                                </button>
+                            </div>
+
+                            <!-- Quick Emoji Bar -->
+                            <div class="flex items-center justify-between bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+                                <span class="text-[10px] text-slate-400 font-medium">React:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="sendEmojiReaction(getActiveSimPlayerId(), '🔥')" class="hover:scale-125 transition text-sm">🔥</button>
+                                    <button onclick="sendEmojiReaction(getActiveSimPlayerId(), '😂')" class="hover:scale-125 transition text-sm">😂</button>
+                                    <button onclick="sendEmojiReaction(getActiveSimPlayerId(), '😎')" class="hover:scale-125 transition text-sm">😎</button>
+                                    <button onclick="sendEmojiReaction(getActiveSimPlayerId(), '👏')" class="hover:scale-125 transition text-sm">👏</button>
+                                    <button onclick="sendEmojiReaction(getActiveSimPlayerId(), '😱')" class="hover:scale-125 transition text-sm">😱</button>
+                                    <button onclick="sendEmojiReaction(getActiveSimPlayerId(), '🎉')" class="hover:scale-125 transition text-sm">🎉</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </section>
+
+    <!-- ================= 3. DEDICATED FULL-SCREEN MOBILE PLAYER CONTROLLER VIEW ================= -->
+    <section id="mobileControllerView" class="hidden flex-1 flex flex-col justify-between bg-slate-950 p-3 sm:p-5 max-w-lg mx-auto w-full">
+        <!-- Top Player Status Bar -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex items-center justify-between shadow-lg">
+            <div class="flex items-center gap-2.5">
+                <div id="mobPlayerAvatar" class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl">
+                    😎
+                </div>
+                <div>
+                    <h2 id="mobPlayerName" class="font-bold text-white text-sm">Player</h2>
+                    <p id="mobConnectionBadge" class="text-[11px] text-emerald-400 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Connected to Laptop Table
+                    </p>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Score / Tricks</span>
+                <span id="mobPlayerScore" class="font-display font-extrabold text-lg text-amber-400">0</span>
+                <button onclick="manualResyncMobile()" class="mt-0.5 text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700">
+                    <i class="fa-solid fa-rotate"></i> Resync
+                </button>
+            </div>
+        </div>
+
+        <!-- Turn & Table Status Banner -->
+        <div class="my-3 space-y-2">
+            <div id="mobTurnBanner" class="py-3 px-4 rounded-2xl text-center font-extrabold text-sm tracking-wide shadow-lg bg-slate-800 text-slate-200 transition">
+                Waiting for host to deal...
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-center">
+                    <span class="text-[10px] text-slate-400 block uppercase">Game Mode</span>
+                    <strong id="mobGameModeLabel" class="text-emerald-400 truncate block">Trick-Taking</strong>
+                </div>
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-center">
+                    <span class="text-[10px] text-slate-400 block uppercase">Table Lead / Top</span>
+                    <strong id="mobTableLeadLabel" class="text-amber-300 truncate block">Any Suit</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wild Suit Picker Modal on Real Mobile -->
+        <div id="mobWildSuitPicker" class="hidden my-2 p-3 rounded-2xl bg-amber-500/20 border-2 border-amber-500 text-center">
+            <p class="text-xs font-bold text-amber-300 mb-2">Wild 8! Choose Next Suit for the Table:</p>
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="confirmWildSuit('♠', false)" class="py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xl border border-slate-700">♠</button>
+                <button onclick="confirmWildSuit('♥', false)" class="py-2.5 rounded-xl bg-slate-900 text-red-500 font-bold text-xl border border-slate-700">♥</button>
+                <button onclick="confirmWildSuit('♦', false)" class="py-2.5 rounded-xl bg-slate-900 text-red-500 font-bold text-xl border border-slate-700">♦</button>
+                <button onclick="confirmWildSuit('♣', false)" class="py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xl border border-slate-700">♣</button>
+            </div>
+        </div>
+
+        <!-- Player's Private Hand Area -->
+        <div class="flex-1 flex flex-col justify-center my-2 bg-slate-900/50 border border-slate-800/80 rounded-3xl p-4 relative overflow-hidden">
+            <div class="flex items-center justify-between text-xs text-slate-400 mb-3">
+                <span><i class="fa-solid fa-hand-holding-heart text-emerald-400 mr-1"></i>Your Private Hand</span>
+                <span id="mobHandCountBadge" class="font-bold text-white">0 Cards</span>
+            </div>
+
+            <div id="mobHandContainer" class="flex flex-wrap items-center justify-center gap-2 my-auto py-4">
+                <!-- Mobile player's private cards rendered here -->
+            </div>
+
+            <p id="mobCardSelectionHint" class="text-center text-[11px] text-slate-400 mt-2">
+                Tap a card to select it, then tap <strong>Throw Card to Table</strong>
+            </p>
+        </div>
+
+        <!-- Bottom Action Controls (Throw, Draw, Reactions) -->
+        <div class="space-y-2.5">
+            <div class="flex items-center gap-2">
+                <button id="btnMobThrowCard" onclick="throwSelectedCardFromPhone(false)" class="flex-1 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-base shadow-xl shadow-emerald-950 flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="fa-solid fa-paper-plane"></i> Throw Card to Laptop
+                </button>
+                <button id="btnMobDrawCard" onclick="requestMobileDrawCard()" class="hidden px-4 py-4 rounded-2xl bg-amber-500 text-slate-950 font-extrabold text-sm shadow-lg">
+                    +Draw
+                </button>
+                <button id="btnMobThrowBlind" onclick="throwSelectedCardFromPhone(false, true)" class="hidden px-3.5 py-4 rounded-2xl bg-slate-800 text-slate-200 font-bold text-xs border border-slate-700">
+                    Face-Down
+                </button>
+            </div>
+
+            <!-- Live Emoji Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-400">Send Reaction:</span>
+                <div class="flex items-center gap-3">
+                    <button onclick="sendEmojiReaction(clientState.myPlayerId, '🔥')" class="text-xl active:scale-125 transition">🔥</button>
+                    <button onclick="sendEmojiReaction(clientState.myPlayerId, '😂')" class="text-xl active:scale-125 transition">😂</button>
+                    <button onclick="sendEmojiReaction(clientState.myPlayerId, '😎')" class="text-xl active:scale-125 transition">😎</button>
+                    <button onclick="sendEmojiReaction(clientState.myPlayerId, '👏')" class="text-xl active:scale-125 transition">👏</button>
+                    <button onclick="sendEmojiReaction(clientState.myPlayerId, '😱')" class="text-xl active:scale-125 transition">😱</button>
+                    <button onclick="sendEmojiReaction(clientState.myPlayerId, '🎉')" class="text-xl active:scale-125 transition">🎉</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= MODAL 1: QR CODE & PHONE JOIN INSTRUCTIONS ================= -->
+    <div id="qrModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl text-center relative max-h-[92vh] overflow-y-auto">
+            <button onclick="closeQRModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-solid fa-qrcode"></i>
+            </div>
+            <h3 class="font-display text-xl font-bold text-white">Connect iPhone & Android Phones</h3>
+            <p class="text-xs text-slate-400 mt-1 mb-3">
+                Open your hosted URL on any iPhone/Android and enter this 4-letter Room Code, or scan the QR code below:
+            </p>
+
+            <!-- Big Room Code -->
+            <div class="inline-block px-6 py-2 rounded-2xl bg-slate-950 border border-emerald-500/40 font-mono text-3xl font-extrabold tracking-widest text-emerald-400 mb-3" id="modalRoomCodeDisplay">
+                DECK
+            </div>
+
+            <!-- Sandbox / Custom GitHub Pages URL Input for QR Code -->
+            <div id="customQrUrlBox" class="mb-3 text-left bg-slate-950/90 p-3 rounded-2xl border border-amber-500/40">
+                <label class="block text-[11px] font-bold text-amber-300 uppercase tracking-wider mb-1">
+                    <i class="fa-brands fa-github mr-1"></i> Public / GitHub Pages URL for QR Code:
+                </label>
+                <p id="sandboxUrlWarning" class="text-[11px] text-slate-400 mb-2">
+                    If you are previewing inside an editor/sandbox, paste your live GitHub Pages URL below so your iPhone camera scans a public web link:
+                </p>
+                <div class="flex items-center gap-1.5">
+                    <input id="customPublicUrlInput" type="url" placeholder="https://yourname.github.io/card-game/" oninput="updateQRWithCustomUrl()" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                </div>
+            </div>
+
+            <!-- QR Code Container -->
+            <div class="bg-white p-4 rounded-2xl inline-block mx-auto mb-3 shadow-lg">
+                <div id="qrcodeContainer"></div>
+            </div>
+
+            <!-- Copy Join Link -->
+            <div class="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 mb-3">
+                <input id="shareableJoinLink" type="text" readonly class="bg-transparent text-xs text-slate-300 flex-1 px-2 focus:outline-none">
+                <button onclick="copyJoinUrl()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
+                    Copy Link
+                </button>
+            </div>
+
+            <div class="text-[11px] text-slate-300 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5 text-left space-y-1">
+                <div><i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> <strong>iPhone Dual-Transport Active:</strong> Connects automatically via iOS-Safe JSON WebRTC <em>plus</em> Secure WebSocket Relay (MQTT over WSS) to bypass cellular/Wi-Fi NAT blocks.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL 2: GITHUB PAGES EXPORT & INSTRUCTIONS ================= -->
+    <div id="githubModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
+            <button onclick="closeGithubModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl text-white">
+                    <i class="fa-brands fa-github"></i>
+                </div>
+                <div>
+                    <h3 class="font-display text-xl font-bold text-white">Host on Your GitHub Pages</h3>
+                    <p class="text-xs text-slate-400">100% Static Single-File WebRTC Architecture — Zero Server Needed</p>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-xs sm:text-sm text-slate-300 bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-5">
+                <div class="flex items-start gap-2.5">
+                    <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs mt-0.5">1</span>
+                    <p>Click <strong>Download Standalone index.html</strong> below to save this complete application file.</p>
+                </div>
+                <div class="flex items-start gap-2.5">
+                    <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs mt-0.5">2</span>
+                    <p>Create a new public repository on GitHub (e.g. <code>card-table-hub</code>) and upload <code>index.html</code>.</p>
+                </div>
+                <div class="flex items-start gap-2.5">
+                    <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs mt-0.5">3</span>
+                    <p>Go to <strong>Settings → Pages</strong>, select branch <code>main</code>, and click Save. Your live multiplayer URL (`https://username.github.io/card-table-hub/`) will be ready in 60 seconds!</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2.5">
+                <button onclick="downloadStandaloneHTML()" class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-download"></i> Download Standalone index.html
+                </button>
+                <button onclick="closeGithubModal()" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL 3: MANAGE & REMOVE PLAYERS ON LAPTOP ================= -->
+    <div id="managePlayersModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+            <button onclick="closeManagePlayersModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl text-rose-400">
+                    <i class="fa-solid fa-users-gear"></i>
+                </div>
+                <div>
+                    <h3 class="font-display text-xl font-bold text-white">Manage Table Players</h3>
+                    <p class="text-xs text-slate-400">Remove any player seat, kick disconnected phones, or add virtual players</p>
+                </div>
+            </div>
+
+            <div id="managePlayersList" class="flex-1 overflow-y-auto space-y-2 pr-1 my-2">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="pt-4 mt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <button onclick="addSimulatedPhoneSeat(); renderManagePlayersList();" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5">
+                        <i class="fa-solid fa-user-plus"></i> + Add Virtual Player
+                    </button>
+                    <button onclick="removeAllVirtualPlayers()" class="px-3 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 border border-rose-500/30 font-bold text-xs flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i> Remove All Virtual/Bot Players
+                    </button>
+                </div>
+                <button onclick="closeManagePlayersModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- ================= APPLICATION JAVASCRIPT ENGINE ================= -->
+    <script>
+        /*************************************************************************
+         * 1. SOUND SYNTHESIZER (WEB AUDIO API - NO EXTERNAL MP3 DEPENDENCIES)
+         *************************************************************************/
+        let soundEnabled = true;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+
+                if (type === 'cardThrow') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(110, now + 0.11);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'deal') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(480, now);
+                    osc.frequency.exponentialRampToValueAtTime(650, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.09);
+                } else if (type === 'winTrick') {
+                    [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+                        gain.gain.setValueAtTime(0.18, now + idx * 0.07);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.22);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now + idx * 0.07);
+                        osc.stop(now + idx * 0.07 + 0.23);
+                    });
+                } else if (type === 'emoji') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(580, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.13);
+                }
+            } catch (e) {
+                // Ignore audio errors on locked browsers
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            if (icon) {
+                icon.className = soundEnabled ? 'fa-solid fa-volume-high text-sm text-emerald-400' : 'fa-solid fa-volume-xmark text-sm text-slate-500';
+            }
+            showToast(soundEnabled ? 'Sound effects enabled' : 'Sound effects muted', 'info');
+        }
+
+        /*************************************************************************
+         * 2. CARD DECK & GAME STATE DATA STRUCTURES (SYNTAX-VERIFIED)
+         *************************************************************************/
+        const SUITS = ['♠', '♥', '♦', '♣'];
+        const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        const RANK_VALUES = {
+            '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8,
+            '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
+        };
+        const DEFAULT_AVATARS = ['😎', '🦊', '🐯', '🐼', '🦁', '🐸', '🦄', '🤖'];
+        const DEFAULT_NAMES = ['Alex', 'Maya', 'Rohan', 'Zoya', 'Kabir', 'Tara', 'Leo', 'Nina'];
+
+        // Central Authoritative Game State (Managed by Laptop Host)
+        let gameState = {
+            roomCode: '4829',
+            gameMode: 'trick', // 'trick' | 'shedding' | 'showdown' | 'sandbox'
+            maxSeats: 4,
+            players: [],       // Array of { id, name, avatar, hand: [], score: 0, isBot: false, connectionType: 'sim'|'p2p'|'bot', peerConn: null, lastHandLabel: '' }
+            deck: [],
+            tableCards: [],    // Cards currently thrown on the central table: { card, playerId, playerName, playerAvatar, faceDown, rotation }
+            turnIndex: 0,
+            turnDirection: 1,  // 1 = clockwise, -1 = counter-clockwise (used in Crazy Eights)
+            leadSuit: null,
+            trumpSuit: '♠',
+            topDiscard: null,
+            announcement: 'Waiting for cards to be dealt...',
+            roundActive: false,
+            resolvingTrick: false
+        };
+
+        // Split-Screen Virtual Phone Simulator State (on Laptop)
+        let simState = {
+            activeSimPlayerId: null,
+            selectedCardId: null,
+            pendingWildCard: null
+        };
+
+        // Dedicated Mobile Hand Controller State (on iPhone / Android)
+        let clientState = {
+            isMobileClient: false,
+            roomCode: '',
+            myPlayerId: '',
+            myName: 'Player',
+            myAvatar: '😎',
+            myHand: [],
+            myScore: 0,
+            selectedCardId: null,
+            pendingWildCard: null,
+            connectedAck: false
+        };
+
+        // Multi-Transport Networking Objects (PeerJS + Multi-Broker MQTT over WSS + BroadcastChannel)
+        let hostPeer = null;
+        let clientPeer = null;
+        let hostConn = null;
+        let mqttClients = []; // Parallel WSS brokers for iPhone reliability across Jio/Airtel/Wi-Fi
+        let localBroadcast = null;
+        let botTimer = null;
+        let mobileJoinRetryTimer = null;
+        let processedMsgIds = new Set();
+
+        const MQTT_BROKERS = [
+            { name: 'EMQX', url: 'wss://broker.emqx.io:8084/mqtt' },
+            { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' },
+            { name: 'Mosquitto', url: 'wss://test.mosquitto.org:8081/mqtt' }
+        ];
+
+        const PEER_ICE_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun.cloudflare.com:3478' }
+                ]
+            }
+        };
+
+        try {
+            localBroadcast = new BroadcastChannel('tabledeck_p2p_channel');
+            localBroadcast.onmessage = (event) => handleBroadcastMessage(event.data);
+        } catch (e) {
+            console.warn('BroadcastChannel not supported in this context.');
+        }
+
+        function createUniqueMsgId() {
+            return 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        }
+
+        function isDuplicateMsg(msg) {
+            if (!msg || !msg.msgId) return false;
+            if (processedMsgIds.has(msg.msgId)) return true;
+            processedMsgIds.add(msg.msgId);
+            if (processedMsgIds.size > 400) {
+                const first = processedMsgIds.values().next().value;
+                processedMsgIds.delete(first);
+            }
+            return false;
+        }
+
+        function normalizeRoomCode(raw) {
+            return String(raw || '').replace(/\s+/g, '').toUpperCase();
+        }
+
+        /*************************************************************************
+         * 3. DECK GENERATION, SHUFFLING & DEALING
+         *************************************************************************/
+        function createDeck() {
+            const deck = [];
+            let uid = 1;
+            for (const suit of SUITS) {
+                for (const rank of RANKS) {
+                    deck.push({
+                        id: `c_${uid++}_${rank}${suit}_${Math.random().toString(36).substring(2, 5)}`,
+                        rank,
+                        suit,
+                        value: RANK_VALUES[rank],
+                        isRed: suit === '♥' || suit === '♦'
+                    });
+                }
+            }
+            // Fisher-Yates shuffle
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+            return deck;
+        }
+
+        function sortHand(hand) {
+            const suitOrder = { '♠': 1, '♥': 2, '♣': 3, '♦': 4 };
+            return hand.sort((a, b) => {
+                if (suitOrder[a.suit] !== suitOrder[b.suit]) {
+                    return suitOrder[a.suit] - suitOrder[b.suit];
+                }
+                return a.value - b.value;
+            });
+        }
+
+        // Generate a 4-Digit Numeric Room PIN (e.g. 4829) so iPhones never suffer from autocorrect
+        function generateRoomCode() {
+            return String(Math.floor(1000 + Math.random() * 9000));
+        }
+
+        /*************************************************************************
+         * 4. INITIALIZATION & ROLE LAUNCHERS
+         *************************************************************************/
+        window.addEventListener('DOMContentLoaded', () => {
+            // Restore saved player identity for seamless iPhone reconnects
+            try {
+                const savedId = sessionStorage.getItem('td_player_id');
+                const savedName = sessionStorage.getItem('td_player_name');
+                const savedRoom = sessionStorage.getItem('td_room_code');
+                if (savedId) clientState.myPlayerId = savedId;
+                if (savedName) {
+                    const nameInput = document.getElementById('joinPlayerNameInput');
+                    if (nameInput) nameInput.value = savedName;
+                }
+                if (savedRoom) {
+                    const codeInput = document.getElementById('joinRoomCodeInput');
+                    if (codeInput && !codeInput.value) codeInput.value = savedRoom;
+                }
+            } catch (e) {}
+
+            // Check URL parameters for ?room=XXXX auto-fill (from QR Code scan!)
+            const params = new URLSearchParams(window.location.search);
+            const urlRoom = params.get('room');
+            if (urlRoom) {
+                const cleanRoom = normalizeRoomCode(urlRoom);
+                const inputEl = document.getElementById('joinRoomCodeInput');
+                if (inputEl) inputEl.value = cleanRoom;
+                showToast(`Room PIN ${cleanRoom} loaded! Enter your name and tap Connect.`, 'info');
+            }
+        });
+
+        function selectJoinAvatar(emoji, btnEl) {
+            clientState.myAvatar = emoji;
+            document.querySelectorAll('.avatar-btn').forEach(b => {
+                b.className = 'avatar-btn py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-lg';
+            });
+            if (btnEl) {
+                btnEl.className = 'avatar-btn py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-lg';
+            }
+        }
+
+        function returnToLanding() {
+            clearTimeout(botTimer);
+            clearInterval(mobileJoinRetryTimer);
+            document.getElementById('landingView').classList.remove('hidden');
+            document.getElementById('laptopTableView').classList.add('hidden');
+            document.getElementById('mobileControllerView').classList.add('hidden');
+            document.getElementById('navRoomBadge').classList.add('hidden');
+            document.getElementById('btnToggleSimDrawer').classList.add('hidden');
+        }
+
+        // Launch Instant Split-Screen Demo (Table + 4 Virtual Phone Controllers)
+        function startInstantSplitScreenDemo() {
+            document.getElementById('hostGameMode').value = 'trick';
+            document.getElementById('hostMaxPlayers').value = '4';
+            document.getElementById('hostBotFill').value = 'sim';
+            startLaptopHost(true);
+        }
+
+        // Start Central Laptop Host
+        function startLaptopHost(forceOpenSimDock = false) {
+            clientState.isMobileClient = false;
+            const mode = document.getElementById('hostGameMode').value;
+            const maxSeats = parseInt(document.getElementById('hostMaxPlayers').value, 10) || 4;
+            const fillMode = document.getElementById('hostBotFill').value;
+
+            gameState.roomCode = generateRoomCode();
+            gameState.gameMode = mode;
+            gameState.maxSeats = maxSeats;
+            gameState.players = [];
+            gameState.tableCards = [];
+            gameState.turnIndex = 0;
+            gameState.turnDirection = 1;
+
+            // Sync dropdowns in live table header
+            document.getElementById('liveGameModeSelect').value = mode;
+            document.getElementById('livePlayerCountSelect').value = String(maxSeats);
+
+            const autoFillChk = document.getElementById('chkAutoFillSeats');
+            if (autoFillChk) {
+                autoFillChk.checked = (fillMode !== 'wait');
+            }
+
+            // Create initial seats based on fillMode
+            if (fillMode === 'sim' || fillMode === 'bots') {
+                for (let i = 0; i < maxSeats; i++) {
+                    const isBotSeat = (fillMode === 'bots') ? true : (i >= 2);
+                    gameState.players.push({
+                        id: `p_${i + 1}`,
+                        name: DEFAULT_NAMES[i % DEFAULT_NAMES.length],
+                        avatar: DEFAULT_AVATARS[i % DEFAULT_AVATARS.length],
+                        hand: [],
+                        score: 0,
+                        isBot: isBotSeat,
+                        connectionType: isBotSeat ? 'bot' : 'sim',
+                        peerConn: null,
+                        lastHandLabel: ''
+                    });
+                }
+            } else {
+                // Wait for real phones, but add 1 Host Virtual Phone so table can deal immediately
+                gameState.players.push({
+                    id: 'p_1',
+                    name: 'Player 1 (Phone)',
+                    avatar: '😎',
+                    hand: [],
+                    score: 0,
+                    isBot: false,
+                    connectionType: 'sim',
+                    peerConn: null,
+                    lastHandLabel: ''
+                });
+            }
+
+            simState.activeSimPlayerId = gameState.players[0]?.id || null;
+
+            // Switch Views
+            document.getElementById('landingView').classList.add('hidden');
+            document.getElementById('mobileControllerView').classList.add('hidden');
+            document.getElementById('laptopTableView').classList.remove('hidden');
+
+            // Top Nav Badges
+            document.getElementById('navRoomBadge').classList.remove('hidden');
+            document.getElementById('navRoomBadge').classList.add('flex');
+            document.getElementById('navRoomCode').textContent = gameState.roomCode;
+            document.getElementById('bottomBarRoomCode').textContent = gameState.roomCode;
+            const arenaCodeEl = document.getElementById('arenaRoomCodeText');
+            if (arenaCodeEl) arenaCodeEl.textContent = gameState.roomCode;
+            document.getElementById('btnToggleSimDrawer').classList.remove('hidden');
+            document.getElementById('btnToggleSimDrawer').classList.add('inline-flex');
+
+            if (forceOpenSimDock) {
+                document.getElementById('simulatorDock').classList.remove('hidden');
+            }
+
+            // Initialize Multi-Transport Host (PeerJS + 3 Parallel MQTT over WSS Relays for iPhones)
+            initHostNetworking(gameState.roomCode);
+
+            // Deal initial round immediately
+            dealNewRound();
+        }
+
+        /*************************************************************************
+         * 5. MULTI-TRANSPORT NETWORKING (iOS SAFARI + 3 WSS RELAYS + PEERJS)
+         *************************************************************************/
+        function getPeerIdForRoom(code) {
+            return `tabledeck-v3-room-${normalizeRoomCode(code)}`;
+        }
+
+        function getMqttTopicForRoom(code) {
+            return `tabledeck/v3/room/${normalizeRoomCode(code)}`;
+        }
+
+        function updateNavNetworkBadge() {
+            const statusEl = document.getElementById('navNetStatus');
+            if (!statusEl) return;
+            const connectedRelays = mqttClients.filter(c => c && c.connected).length;
+            const peerReady = (hostPeer && !hostPeer.disconnected) || (hostConn && hostConn.open);
+            const totalActive = connectedRelays + (peerReady ? 1 : 0);
+
+            statusEl.classList.remove('hidden');
+            statusEl.classList.add('inline-flex');
+            if (totalActive > 0) {
+                statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> ${connectedRelays} WSS Relays ${peerReady ? '+ P2P' : ''} Ready`;
+            } else {
+                statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Connecting Relays...`;
+            }
+        }
+
+        function initHostNetworking(roomCode) {
+            const cleanCode = normalizeRoomCode(roomCode);
+            // 1. Initialize PeerJS Host with STUN servers (wrapped in try/catch)
+            try {
+                if (hostPeer) {
+                    try { hostPeer.destroy(); } catch (e) {}
+                }
+                if (typeof Peer !== 'undefined') {
+                    hostPeer = new Peer(getPeerIdForRoom(cleanCode), PEER_ICE_CONFIG);
+                    hostPeer.on('open', () => {
+                        updateNavNetworkBadge();
+                    });
+                    hostPeer.on('connection', (conn) => {
+                        conn.on('open', () => {
+                            broadcastStateToAllClients();
+                        });
+                        conn.on('data', (data) => {
+                            if (!isDuplicateMsg(data)) {
+                                handleIncomingClientMessage(data, conn);
+                            }
+                        });
+                    });
+                    hostPeer.on('error', (err) => {
+                        console.warn('PeerJS Host notice:', err?.type || err);
+                    });
+                }
+            } catch (e) {
+                console.warn('PeerJS Host skipped, using WSS Relays:', e);
+            }
+
+            // 2. Initialize Parallel MQTT over WSS Relays (EMQX, HiveMQ, Mosquitto)
+            initMultiMqttRelays(cleanCode, true);
+        }
+
+        function initMultiMqttRelays(roomCode, isHost) {
+            // Clean up any previous MQTT clients
+            mqttClients.forEach(c => {
+                try { c.end(true); } catch (e) {}
+            });
+            mqttClients = [];
+
+            if (typeof mqtt === 'undefined') return;
+            const cleanCode = normalizeRoomCode(roomCode);
+            const topic = getMqttTopicForRoom(cleanCode);
+
+            MQTT_BROKERS.forEach((broker) => {
+                try {
+                    const client = mqtt.connect(broker.url, {
+                        clientId: 'td3_' + (isHost ? 'H_' : 'M_') + Math.random().toString(16).substring(2, 9),
+                        clean: true,
+                        connectTimeout: 6000,
+                        reconnectPeriod: 2500
+                    });
+                    client.brokerName = broker.name;
+
+                    client.on('connect', () => {
+                        client.subscribe(topic, { qos: 0 }, (err) => {
+                            if (!err) {
+                                updateNavNetworkBadge();
+                                if (!isHost && clientState.isMobileClient) {
+                                    updateMobileConnectionStatusBadge();
+                                    sendJoinRequestPacket();
+                                }
+                            }
+                        });
+                    });
+
+                    client.on('message', (receivedTopic, payloadBuffer) => {
+                        try {
+                            const data = JSON.parse(payloadBuffer.toString());
+                            if (isDuplicateMsg(data)) return;
+
+                            if (isHost && !clientState.isMobileClient) {
+                                handleIncomingClientMessage(data, null);
+                            } else if (!isHost && clientState.isMobileClient) {
+                                if (data.type === 'STATE_SYNC' || data.type === 'JOIN_ACK') {
+                                    handleClientReceiveState(data);
+                                } else if (data.type === 'PLAYER_KICKED' && data.playerId === clientState.myPlayerId) {
+                                    handleClientKicked();
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('MQTT packet parse warning:', err);
+                        }
+                    });
+
+                    client.on('error', () => {});
+                    mqttClients.push(client);
+                } catch (e) {
+                    console.warn(`Broker ${broker.name} init failed:`, e);
+                }
+            });
+        }
+
+        function publishToAllMqttRelays(roomCode, payloadObj) {
+            const topic = getMqttTopicForRoom(roomCode);
+            const serialized = JSON.stringify(payloadObj);
+            mqttClients.forEach(client => {
+                if (client && client.connected) {
+                    try {
+                        client.publish(topic, serialized, { qos: 0 });
+                    } catch (e) {}
+                }
+            });
+        }
+
+        function updateMobileConnectionStatusBadge() {
+            const badge = document.getElementById('mobConnectionBadge');
+            if (!badge) return;
+            const activeRelays = mqttClients.filter(c => c && c.connected).map(c => c.brokerName);
+            const p2pOpen = hostConn && hostConn.open;
+
+            if (clientState.connectedAck) {
+                badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Synced with Laptop (PIN: ${clientState.roomCode})`;
+            } else if (activeRelays.length > 0 || p2pOpen) {
+                badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Relay Online (${activeRelays.join('/') || 'P2P'}) — Joining Room ${clientState.roomCode}...`;
+            } else {
+                badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Connecting to Room ${clientState.roomCode}...`;
+            }
+        }
+
+        function sendJoinRequestPacket() {
+            if (!clientState.isMobileClient || !clientState.roomCode) return;
+            const joinPacket = {
+                msgId: createUniqueMsgId(),
+                type: 'JOIN_REQUEST',
+                roomCode: clientState.roomCode,
+                playerId: clientState.myPlayerId,
+                name: clientState.myName,
+                avatar: clientState.myAvatar
+            };
+            if (localBroadcast) {
+                try { localBroadcast.postMessage(joinPacket); } catch (e) {}
+            }
+            publishToAllMqttRelays(clientState.roomCode, joinPacket);
+            if (hostConn && hostConn.open) {
+                try { hostConn.send(joinPacket); } catch (e) {}
+            }
+        }
+
+        function manualResyncMobile() {
+            clientState.connectedAck = false;
+            sendJoinRequestPacket();
+            showToast('Requesting fresh hand sync from Laptop...', 'info');
+        }
+
+        function startMobileClient() {
+            const rawCode = normalizeRoomCode(document.getElementById('joinRoomCodeInput').value);
+            const playerName = (document.getElementById('joinPlayerNameInput').value || '').trim() || 'iPhone Player';
+
+            if (!rawCode || rawCode.length < 2) {
+                showToast('Please enter the 4-Digit Room PIN shown on the Laptop screen!', 'error');
+                return;
+            }
+
+            clientState.isMobileClient = true;
+            clientState.roomCode = rawCode;
+            clientState.myName = playerName;
+            clientState.connectedAck = false;
+
+            if (!clientState.myPlayerId) {
+                clientState.myPlayerId = 'mob_' + Math.random().toString(36).substring(2, 8);
+            }
+
+            try {
+                sessionStorage.setItem('td_player_id', clientState.myPlayerId);
+                sessionStorage.setItem('td_player_name', clientState.myName);
+                sessionStorage.setItem('td_room_code', clientState.roomCode);
+            } catch (e) {}
+
+            // Switch UI to Full-Screen Mobile Hand Controller
+            document.getElementById('landingView').classList.add('hidden');
+            document.getElementById('laptopTableView').classList.add('hidden');
+            document.getElementById('mobileControllerView').classList.remove('hidden');
+
+            document.getElementById('mobPlayerName').textContent = clientState.myName;
+            document.getElementById('mobPlayerAvatar').textContent = clientState.myAvatar;
+            updateMobileConnectionStatusBadge();
+
+            // 1. Connect via Parallel WSS MQTT Relays (EMQX + HiveMQ + Mosquitto)
+            initMultiMqttRelays(rawCode, false);
+
+            // 2. Connect via iOS-Safe WebRTC PeerJS (serialization: 'json')
+            try {
+                if (clientPeer) {
+                    try { clientPeer.destroy(); } catch (e) {}
+                }
+                if (typeof Peer !== 'undefined') {
+                    clientPeer = new Peer(undefined, PEER_ICE_CONFIG);
+                    clientPeer.on('open', () => {
+                        hostConn = clientPeer.connect(getPeerIdForRoom(rawCode), {
+                            serialization: 'json',
+                            reliable: true
+                        });
+                        hostConn.on('open', () => {
+                            updateMobileConnectionStatusBadge();
+                            sendJoinRequestPacket();
+                        });
+                        hostConn.on('data', (data) => {
+                            if (isDuplicateMsg(data)) return;
+                            if (data.type === 'STATE_SYNC' || data.type === 'JOIN_ACK') {
+                                handleClientReceiveState(data);
+                            } else if (data.type === 'PLAYER_KICKED' && data.playerId === clientState.myPlayerId) {
+                                handleClientKicked();
+                            }
+                        });
+                    });
+                    clientPeer.on('error', () => {});
+                }
+            } catch (e) {}
+
+            // 3. Send immediate join packet & start 1.2s Auto-Retry Handshake until Laptop acknowledges
+            sendJoinRequestPacket();
+            clearInterval(mobileJoinRetryTimer);
+            mobileJoinRetryTimer = setInterval(() => {
+                if (!clientState.isMobileClient || clientState.connectedAck) {
+                    clearInterval(mobileJoinRetryTimer);
+                    return;
+                }
+                updateMobileConnectionStatusBadge();
+                sendJoinRequestPacket();
+            }, 1200);
+        }
+
+        function handleClientKicked() {
+            clearInterval(mobileJoinRetryTimer);
+            clientState.isMobileClient = false;
+            clientState.connectedAck = false;
+            returnToLanding();
+            showToast('You were removed from the table by the Laptop Host.', 'error');
+        }
+
+        // Host receives message from Mobile Phone (via WebRTC, Multi-WSS MQTT Relay, or BroadcastChannel)
+        function handleIncomingClientMessage(msg, peerConn = null) {
+            if (!msg || clientState.isMobileClient) return;
+            if (msg.roomCode && normalizeRoomCode(msg.roomCode) !== normalizeRoomCode(gameState.roomCode)) return;
+
+            if (msg.type === 'JOIN_REQUEST') {
+                let existing = gameState.players.find(p => p.id === msg.playerId);
+                if (!existing) {
+                    // Replace a Virtual Phone or AI Bot seat so the iPhone immediately inherits its dealt cards!
+                    const replaceableSeat = gameState.players.find(p => p.connectionType === 'sim' || p.isBot);
+                    if (replaceableSeat) {
+                        const oldId = replaceableSeat.id;
+                        replaceableSeat.id = msg.playerId;
+                        replaceableSeat.name = msg.name;
+                        replaceableSeat.avatar = msg.avatar || '😎';
+                        replaceableSeat.isBot = false;
+                        replaceableSeat.connectionType = 'p2p';
+                        replaceableSeat.peerConn = peerConn;
+                        if (simState.activeSimPlayerId === oldId) {
+                            simState.activeSimPlayerId = msg.playerId;
+                        }
+                        existing = replaceableSeat;
+                    } else {
+                        existing = {
+                            id: msg.playerId,
+                            name: msg.name,
+                            avatar: msg.avatar || '😎',
+                            hand: [],
+                            score: 0,
+                            isBot: false,
+                            connectionType: 'p2p',
+                            peerConn: peerConn,
+                            lastHandLabel: ''
+                        };
+                        gameState.players.push(existing);
+                        if (gameState.players.length > gameState.maxSeats) {
+                            gameState.maxSeats = gameState.players.length;
+                            const countSel = document.getElementById('livePlayerCountSelect');
+                            if (countSel) countSel.value = String(Math.min(8, gameState.maxSeats));
+                        }
+                    }
+
+                    // Ensure the newly connected iPhone has cards right away
+                    if (existing.hand.length === 0) {
+                        if (gameState.deck.length < 7) {
+                            gameState.deck = createDeck();
+                        }
+                        const count = getCardsPerPlayerForMode(gameState.gameMode);
+                        for (let i = 0; i < count; i++) {
+                            if (gameState.deck.length > 0) existing.hand.push(gameState.deck.pop());
+                        }
+                        sortHand(existing.hand);
+                    }
+                    showToast(`📱 ${msg.name} connected from iPhone/Mobile!`, 'success');
+                    playSound('deal');
+                } else {
+                    existing.name = msg.name || existing.name;
+                    existing.avatar = msg.avatar || existing.avatar;
+                    existing.connectionType = 'p2p';
+                    existing.isBot = false;
+                    if (peerConn) existing.peerConn = peerConn;
+                }
+
+                broadcastStateToAllClients();
+                renderLaptopTableUI();
+            } else if (msg.type === 'THROW_CARD') {
+                processPlayerCardThrow(msg.playerId, msg.cardId, msg.chosenSuit || null, msg.faceDown || false);
+            } else if (msg.type === 'DRAW_CARD') {
+                playerDrawCard(msg.playerId);
+            } else if (msg.type === 'EMOJI_REACT') {
+                sendEmojiReaction(msg.playerId, msg.emoji, true);
+            }
+        }
+
+        function handleBroadcastMessage(msg) {
+            if (!msg || isDuplicateMsg(msg)) return;
+            if (!clientState.isMobileClient && normalizeRoomCode(msg.roomCode) === normalizeRoomCode(gameState.roomCode)) {
+                handleIncomingClientMessage(msg, null);
+            } else if (clientState.isMobileClient && normalizeRoomCode(msg.roomCode) === normalizeRoomCode(clientState.roomCode)) {
+                if (msg.type === 'STATE_SYNC' || msg.type === 'JOIN_ACK') {
+                    handleClientReceiveState(msg);
+                } else if (msg.type === 'PLAYER_KICKED' && msg.playerId === clientState.myPlayerId) {
+                    handleClientKicked();
+                }
+            }
+        }
+
+        function broadcastStateToAllClients() {
+            const payload = {
+                msgId: createUniqueMsgId(),
+                type: 'STATE_SYNC',
+                roomCode: gameState.roomCode,
+                gameMode: gameState.gameMode,
+                turnPlayerId: gameState.players[gameState.turnIndex]?.id || null,
+                turnPlayerName: gameState.players[gameState.turnIndex]?.name || '',
+                leadSuit: gameState.leadSuit,
+                trumpSuit: gameState.trumpSuit,
+                topDiscard: gameState.topDiscard,
+                announcement: gameState.announcement,
+                playersSummary: gameState.players.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    avatar: p.avatar,
+                    score: p.score,
+                    hand: p.hand
+                }))
+            };
+
+            // 1. Send via BroadcastChannel
+            if (localBroadcast) {
+                try { localBroadcast.postMessage(payload); } catch (e) {}
+            }
+
+            // 2. Send via All Connected WSS MQTT Relays
+            publishToAllMqttRelays(gameState.roomCode, payload);
+
+            // 3. Send via direct PeerJS WebRTC connections
+            gameState.players.forEach(p => {
+                if (p.peerConn && p.peerConn.open) {
+                    try { p.peerConn.send(payload); } catch (e) {}
+                }
+            });
+        }
+
+        function handleClientReceiveState(data) {
+            if (!clientState.isMobileClient || !data.playersSummary) return;
+            const me = data.playersSummary.find(p => p.id === clientState.myPlayerId);
+            if (!me) return;
+
+            if (!clientState.connectedAck) {
+                clientState.connectedAck = true;
+                clearInterval(mobileJoinRetryTimer);
+                playSound('deal');
+                showToast(`Connected to Laptop Table (${data.roomCode})!`, 'success');
+            }
+
+            updateMobileConnectionStatusBadge();
+            clientState.myHand = me.hand || [];
+            clientState.myScore = me.score || 0;
+            renderMobileControllerUI(data);
+        }
+
+        /*************************************************************************
+         * 6. REMOVE PLAYER FROM LAPTOP & MANAGE PLAYERS ENGINE
+         *************************************************************************/
+        function removePlayer(playerId) {
+            const idx = gameState.players.findIndex(p => p.id === playerId);
+            if (idx === -1) return;
+
+            const removedPlayer = gameState.players[idx];
+
+            // Notify mobile device if it was a connected phone
+            const kickPacket = {
+                msgId: createUniqueMsgId(),
+                type: 'PLAYER_KICKED',
+                roomCode: gameState.roomCode,
+                playerId: removedPlayer.id
+            };
+            if (localBroadcast) {
+                try { localBroadcast.postMessage(kickPacket); } catch (e) {}
+            }
+            publishToAllMqttRelays(gameState.roomCode, kickPacket);
+            if (removedPlayer.peerConn && removedPlayer.peerConn.open) {
+                try { removedPlayer.peerConn.send(kickPacket); } catch (e) {}
+            }
+
+            // Remove player from array
+            gameState.players.splice(idx, 1);
+
+            // Remove any card thrown by this player in the active trick if in trick-taking mode
+            if (gameState.gameMode === 'trick') {
+                gameState.tableCards = gameState.tableCards.filter(tc => tc.playerId !== playerId);
+                if (gameState.tableCards.length === 0) {
+                    gameState.leadSuit = null;
+                }
+            }
+
+            // Safely adjust turnIndex so turn order never breaks
+            if (gameState.players.length === 0) {
+                gameState.turnIndex = 0;
+                simState.activeSimPlayerId = null;
+                gameState.announcement = 'All players removed. Click +Seat or Deal Cards to seat players!';
+            } else {
+                if (idx < gameState.turnIndex) {
+                    gameState.turnIndex = Math.max(0, gameState.turnIndex - 1);
+                } else if (gameState.turnIndex >= gameState.players.length) {
+                    gameState.turnIndex = 0;
+                }
+                if (simState.activeSimPlayerId === playerId) {
+                    simState.activeSimPlayerId = gameState.players[0].id;
+                }
+                const nextTurnPlayer = gameState.players[gameState.turnIndex];
+                gameState.announcement = `Removed ${removedPlayer.name} • Now ${nextTurnPlayer.name}'s turn`;
+            }
+
+            showToast(`Removed ${removedPlayer.name} from the table`, 'info');
+            renderLaptopTableUI();
+            renderManagePlayersList();
+            broadcastStateToAllClients();
+            triggerBotMoveIfNeeded();
+        }
+
+        function removeAllVirtualPlayers() {
+            const virtualIds = gameState.players
+                .filter(p => p.connectionType !== 'p2p')
+                .map(p => p.id);
+
+            if (virtualIds.length === 0) {
+                showToast('No virtual or bot players to remove!', 'info');
+                return;
+            }
+
+            virtualIds.forEach(id => {
+                const idx = gameState.players.findIndex(p => p.id === id);
+                if (idx !== -1) gameState.players.splice(idx, 1);
+            });
+
+            gameState.turnIndex = 0;
+            simState.activeSimPlayerId = gameState.players[0]?.id || null;
+
+            // Uncheck auto-fill so the host can play with strictly real phones if desired
+            const autoFillChk = document.getElementById('chkAutoFillSeats');
+            if (autoFillChk) autoFillChk.checked = false;
+
+            showToast(`Removed ${virtualIds.length} virtual/bot seats.`, 'success');
+            renderLaptopTableUI();
+            renderManagePlayersList();
+            broadcastStateToAllClients();
+        }
+
+        function openManagePlayersModal() {
+            document.getElementById('managePlayersModal').classList.remove('hidden');
+            renderManagePlayersList();
+        }
+
+        function closeManagePlayersModal() {
+            document.getElementById('managePlayersModal').classList.add('hidden');
+        }
+
+        function renderManagePlayersList() {
+            const listEl = document.getElementById('managePlayersList');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+
+            if (gameState.players.length === 0) {
+                listEl.innerHTML = `<div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-center text-xs text-slate-400">No players currently seated. Click <strong>+ Add Virtual Player</strong> or connect from a phone!</div>`;
+                return;
+            }
+
+            gameState.players.forEach((p, idx) => {
+                const typeLabel = p.connectionType === 'p2p'
+                    ? '<span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">📱 Connected Phone</span>'
+                    : p.isBot
+                        ? '<span class="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">🤖 AI Bot</span>'
+                        : '<span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">📱 Virtual Phone</span>';
+
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800';
+                row.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-lg">
+                            ${p.avatar}
+                        </div>
+                        <div>
+                            <div class="font-bold text-sm text-white flex items-center gap-2">
+                                <span>Seat ${idx + 1}: ${p.name}</span>
+                                ${typeLabel}
+                            </div>
+                            <div class="text-[11px] text-slate-400">
+                                Hand: ${p.hand.length} cards • Score: ${p.score}
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="removePlayer('${p.id}')" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1 transition shadow">
+                        <i class="fa-solid fa-user-xmark"></i> Remove
+                    </button>
+                `;
+                listEl.appendChild(row);
+            });
+        }
+
+        /*************************************************************************
+         * 7. GAME MODES & BULLETPROOF DEALING ENGINE
+         *************************************************************************/
+        function getCardsPerPlayerForMode(mode) {
+            switch (mode) {
+                case 'trick': return 7;
+                case 'shedding': return 7;
+                case 'showdown': return 3;
+                case 'sandbox': return 5;
+                default: return 7;
+            }
+        }
+
+        function changeGameModeLive(newMode) {
+            gameState.gameMode = newMode;
+            showToast(`Switched Game Mode to ${getModeDisplayName(newMode)}`, 'info');
+            dealNewRound();
+        }
+
+        function changeSeatCountLive(newCountStr) {
+            const target = parseInt(newCountStr, 10) || 4;
+            gameState.maxSeats = target;
+            while (gameState.players.length < target) {
+                const idx = gameState.players.length;
+                gameState.players.push({
+                    id: `p_${Date.now()}_${idx}`,
+                    name: DEFAULT_NAMES[idx % DEFAULT_NAMES.length],
+                    avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
+                    hand: [],
+                    score: 0,
+                    isBot: idx >= 2,
+                    connectionType: idx >= 2 ? 'bot' : 'sim',
+                    peerConn: null,
+                    lastHandLabel: ''
+                });
+            }
+            if (gameState.players.length > target) {
+                gameState.players = gameState.players.slice(0, target);
+            }
+            simState.activeSimPlayerId = gameState.players[0]?.id || null;
+            dealNewRound();
+        }
+
+        function addSimulatedPhoneSeat() {
+            if (gameState.players.length >= 8) {
+                showToast('Maximum 8 seats around the table reached!', 'error');
+                return;
+            }
+            const idx = gameState.players.length;
+            const newPlayer = {
+                id: `p_${Date.now()}_${idx}`,
+                name: DEFAULT_NAMES[idx % DEFAULT_NAMES.length],
+                avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
+                hand: [],
+                score: 0,
+                isBot: false,
+                connectionType: 'sim',
+                peerConn: null,
+                lastHandLabel: ''
+            };
+
+            // Give the new seat cards immediately if a round is active
+            if (gameState.roundActive) {
+                if (gameState.deck.length < 7) gameState.deck = createDeck();
+                const count = getCardsPerPlayerForMode(gameState.gameMode);
+                for (let i = 0; i < count; i++) {
+                    if (gameState.deck.length > 0) newPlayer.hand.push(gameState.deck.pop());
+                }
+                sortHand(newPlayer.hand);
+            }
+
+            gameState.players.push(newPlayer);
+            gameState.maxSeats = Math.max(gameState.maxSeats, gameState.players.length);
+            const countSelect = document.getElementById('livePlayerCountSelect');
+            if (countSelect) countSelect.value = String(Math.min(8, gameState.players.length));
+            simState.activeSimPlayerId = newPlayer.id;
+
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+            showToast(`Added ${newPlayer.name}'s Seat to the table!`, 'success');
+        }
+
+        function getModeDisplayName(mode) {
+            switch (mode) {
+                case 'trick': return 'Trick-Taking Classic (Spades Trump)';
+                case 'shedding': return 'Crazy Eights / UNO-Style Shedding';
+                case 'showdown': return 'Teen Patti 3-Card Showdown';
+                case 'sandbox': return 'Free Table Sandbox';
+                default: return 'Card Game';
+            }
+        }
+
+        function dealNewRound() {
+            try {
+                clearTimeout(botTimer);
+                gameState.resolvingTrick = false;
+
+                const toastEl = document.getElementById('roundResultToast');
+                if (toastEl) {
+                    toastEl.classList.add('hidden');
+                    toastEl.classList.remove('inline-flex');
+                }
+
+                const seatSelect = document.getElementById('livePlayerCountSelect');
+                const desiredSeats = seatSelect ? (parseInt(seatSelect.value, 10) || 4) : (gameState.maxSeats || 4);
+                gameState.maxSeats = Math.max(2, Math.min(8, desiredSeats));
+
+                const autoFillChk = document.getElementById('chkAutoFillSeats');
+                const shouldAutoFill = autoFillChk ? autoFillChk.checked : true;
+
+                // If auto-fill is enabled OR 0 players are currently seated, populate seats so Deal ALWAYS works on first click
+                if (shouldAutoFill || gameState.players.length === 0) {
+                    const targetCount = gameState.players.length === 0 ? gameState.maxSeats : Math.max(gameState.players.length, gameState.maxSeats);
+                    while (gameState.players.length < targetCount) {
+                        const idx = gameState.players.length;
+                        gameState.players.push({
+                            id: `p_${Date.now()}_${idx}`,
+                            name: DEFAULT_NAMES[idx % DEFAULT_NAMES.length],
+                            avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
+                            hand: [],
+                            score: 0,
+                            isBot: false,
+                            connectionType: 'sim',
+                            peerConn: null,
+                            lastHandLabel: ''
+                        });
+                    }
+                }
+
+                const fullDeck = createDeck();
+                const numPlayers = gameState.players.length;
+
+                gameState.tableCards = [];
+                gameState.leadSuit = null;
+                gameState.topDiscard = null;
+                gameState.turnDirection = 1;
+                gameState.turnIndex = 0;
+
+                // Clear hands & labels
+                gameState.players.forEach(p => {
+                    p.hand = [];
+                    p.lastHandLabel = '';
+                });
+
+                const baseCardsPerPlayer = getCardsPerPlayerForMode(gameState.gameMode);
+                const cardsPerPlayer = Math.min(baseCardsPerPlayer, Math.floor(fullDeck.length / Math.max(1, numPlayers)));
+
+                for (let c = 0; c < cardsPerPlayer; c++) {
+                    for (let p = 0; p < numPlayers; p++) {
+                        if (fullDeck.length > 0) {
+                            gameState.players[p].hand.push(fullDeck.pop());
+                        }
+                    }
+                }
+
+                if (gameState.gameMode === 'trick') {
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `${gameState.players[0].name}'s turn to lead the trick!`;
+                } else if (gameState.gameMode === 'shedding') {
+                    const starter = fullDeck.pop();
+                    gameState.topDiscard = starter;
+                    gameState.leadSuit = starter.suit;
+                    gameState.tableCards.push({
+                        card: starter,
+                        playerId: 'dealer',
+                        playerName: 'Starter Card',
+                        playerAvatar: '🎴',
+                        faceDown: false,
+                        rotation: -4
+                    });
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `Match ${starter.rank} or ${starter.suit} (8 is Wild!) — ${gameState.players[0].name}'s turn`;
+                } else if (gameState.gameMode === 'showdown') {
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `Teen Patti 3-Card Deal! Throw your cards or click Showdown Reveal!`;
+                } else {
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `Sandbox Mode: Any player can throw cards face-up/down or draw!`;
+                }
+
+                gameState.players.forEach(p => sortHand(p.hand));
+                gameState.roundActive = true;
+                playSound('deal');
+
+                if (!simState.activeSimPlayerId || !gameState.players.some(p => p.id === simState.activeSimPlayerId)) {
+                    simState.activeSimPlayerId = gameState.players[0]?.id || null;
+                }
+                syncSimulatorToActiveTurn();
+                renderLaptopTableUI();
+                broadcastStateToAllClients();
+                showToast(`🃏 Dealt ${cardsPerPlayer} cards to each of the ${numPlayers} players!`, 'success');
+                triggerBotMoveIfNeeded();
+            } catch (err) {
+                console.error('Error in dealNewRound:', err);
+                showToast('Dealt new round!', 'info');
+            }
+        }
+
+        // Deal +1 card to all seated players
+        function dealOneMoreCardToAll() {
+            if (gameState.players.length === 0) {
+                dealNewRound();
+                return;
+            }
+            gameState.players.forEach(p => {
+                if (gameState.deck.length === 0) replenishDeckFromDiscard();
+                if (gameState.deck.length > 0) {
+                    p.hand.push(gameState.deck.pop());
+                    sortHand(p.hand);
+                }
+            });
+            playSound('deal');
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+            showToast(`🃏 Dealt +1 extra card to all ${gameState.players.length} players!`, 'success');
+        }
+
+        function clearTableTrick() {
+            manualCollectTableCards();
+        }
+
+        // Validate whether a card is legal to throw in the current mode
+        function isCardPlayable(player, card) {
+            if (!player || !card) return false;
+            if (gameState.resolvingTrick) return false;
+
+            if (gameState.gameMode === 'sandbox' || gameState.gameMode === 'showdown') {
+                return true;
+            }
+
+            const currentTurnPlayer = gameState.players[gameState.turnIndex];
+            if (!currentTurnPlayer || currentTurnPlayer.id !== player.id) {
+                return false;
+            }
+
+            if (gameState.gameMode === 'trick') {
+                if (!gameState.leadSuit) return true;
+                const hasLeadSuit = player.hand.some(c => c.suit === gameState.leadSuit);
+                if (hasLeadSuit && card.suit !== gameState.leadSuit) {
+                    return false;
+                }
+                return true;
+            }
+
+            if (gameState.gameMode === 'shedding') {
+                if (!gameState.topDiscard) return true;
+                if (card.rank === '8') return true;
+                const activeSuit = gameState.leadSuit || gameState.topDiscard.suit;
+                return card.suit === activeSuit || card.rank === gameState.topDiscard.rank;
+            }
+
+            return true;
+        }
+
+        // Process a card thrown from any player's mobile phone or simulator
+        function processPlayerCardThrow(playerId, cardId, chosenWildSuit = null, faceDown = false) {
+            if (gameState.resolvingTrick) return;
+            const playerIndex = gameState.players.findIndex(p => p.id === playerId);
+            if (playerIndex === -1) return;
+            const player = gameState.players[playerIndex];
+
+            const cardIndex = player.hand.findIndex(c => c.id === cardId);
+            if (cardIndex === -1) return;
+            const card = player.hand[cardIndex];
+
+            if (gameState.gameMode === 'trick' || gameState.gameMode === 'shedding') {
+                if (playerIndex !== gameState.turnIndex) {
+                    showToast(`Wait for your turn! It is ${gameState.players[gameState.turnIndex]?.name}'s turn.`, 'error');
+                    return;
+                }
+                if (!isCardPlayable(player, card)) {
+                    if (gameState.gameMode === 'trick') {
+                        showToast(`Must follow lead suit (${gameState.leadSuit})!`, 'error');
+                    } else {
+                        showToast(`Card must match suit (${gameState.leadSuit}) or rank (${gameState.topDiscard?.rank}), or be a Wild 8!`, 'error');
+                    }
+                    return;
+                }
+            }
+
+            player.hand.splice(cardIndex, 1);
+            const rot = (Math.random() * 14 - 7).toFixed(1);
+
+            gameState.tableCards.push({
+                card,
+                playerId: player.id,
+                playerName: player.name,
+                playerAvatar: player.avatar,
+                faceDown: faceDown,
+                rotation: rot
+            });
+
+            playSound('cardThrow');
+
+            if (gameState.gameMode === 'trick') {
+                if (!gameState.leadSuit) {
+                    gameState.leadSuit = card.suit;
+                }
+                if (gameState.tableCards.length >= gameState.players.length) {
+                    gameState.resolvingTrick = true;
+                    gameState.announcement = `Evaluating trick winner...`;
+                    renderLaptopTableUI();
+                    broadcastStateToAllClients();
+                    setTimeout(() => resolveTrickWinner(), 1350);
+                    return;
+                } else {
+                    advanceTurn(1);
+                    const nextP = gameState.players[gameState.turnIndex];
+                    gameState.announcement = `${player.name} threw ${card.rank}${card.suit} • Now ${nextP.name}'s turn!`;
+                }
+            } else if (gameState.gameMode === 'shedding') {
+                gameState.topDiscard = card;
+                gameState.leadSuit = chosenWildSuit || card.suit;
+
+                if (gameState.tableCards.length > 5) {
+                    gameState.tableCards = gameState.tableCards.slice(-5);
+                }
+
+                if (player.hand.length === 0) {
+                    player.score += 10;
+                    playSound('winTrick');
+                    showRoundWinnerBanner(`🏆 ${player.name} emptied their hand & won the round (+10 pts)!`);
+                    gameState.announcement = `🎉 ${player.name} WON THE ROUND! Click 'Deal Cards' for next game.`;
+                    renderLaptopTableUI();
+                    broadcastStateToAllClients();
+                    return;
+                }
+
+                let step = 1;
+                let effectNote = '';
+                if (card.rank === '8') {
+                    effectNote = ` (Wild Suit set to ${gameState.leadSuit}!)`;
+                } else if (card.rank === 'K') {
+                    gameState.turnDirection *= -1;
+                    effectNote = ` (Turn Direction Reversed!)`;
+                    if (gameState.players.length === 2) step = 2;
+                } else if (card.rank === 'J') {
+                    step = 2;
+                    effectNote = ` (Next Player Skipped!)`;
+                } else if (card.rank === '2') {
+                    const victimIdx = getNextTurnIndex(1);
+                    const victim = gameState.players[victimIdx];
+                    for (let d = 0; d < 2; d++) {
+                        if (gameState.deck.length === 0) replenishDeckFromDiscard();
+                        if (gameState.deck.length > 0) victim.hand.push(gameState.deck.pop());
+                    }
+                    sortHand(victim.hand);
+                    effectNote = ` (${victim.name} drew +2 cards!)`;
+                }
+
+                advanceTurn(step);
+                const nextP = gameState.players[gameState.turnIndex];
+                gameState.announcement = `${player.name} played ${card.rank}${card.suit}${effectNote} • ${nextP.name}'s turn`;
+            } else if (gameState.gameMode === 'showdown') {
+                advanceTurn(1);
+                gameState.announcement = `${player.name} threw a card to the showdown pot!`;
+                const totalRemaining = gameState.players.reduce((sum, p) => sum + p.hand.length, 0);
+                if (totalRemaining === 0 && gameState.tableCards.length > 0) {
+                    evaluateShowdownNow();
+                    return;
+                }
+            } else {
+                advanceTurn(1);
+                gameState.announcement = `${player.name} threw ${faceDown ? 'a Face-Down Card' : card.rank + card.suit} to the table`;
+            }
+
+            syncSimulatorToActiveTurn();
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+            triggerBotMoveIfNeeded();
+        }
+
+        function getNextTurnIndex(steps = 1) {
+            const n = gameState.players.length;
+            if (n === 0) return 0;
+            return ((gameState.turnIndex + steps * gameState.turnDirection) % n + n) % n;
+        }
+
+        function advanceTurn(steps = 1) {
+            gameState.turnIndex = getNextTurnIndex(steps);
+        }
+
+        function resolveTrickWinner() {
+            if (gameState.tableCards.length === 0) {
+                gameState.resolvingTrick = false;
+                return;
+            }
+
+            let winningEntry = gameState.tableCards[0];
+            for (let i = 1; i < gameState.tableCards.length; i++) {
+                const candidate = gameState.tableCards[i];
+                const winCard = winningEntry.card;
+                const candCard = candidate.card;
+
+                const winIsTrump = winCard.suit === gameState.trumpSuit;
+                const candIsTrump = candCard.suit === gameState.trumpSuit;
+
+                if (candIsTrump && !winIsTrump) {
+                    winningEntry = candidate;
+                } else if (candIsTrump && winIsTrump && candCard.value > winCard.value) {
+                    winningEntry = candidate;
+                } else if (!candIsTrump && !winIsTrump && candCard.suit === gameState.leadSuit && winCard.suit === gameState.leadSuit && candCard.value > winCard.value) {
+                    winningEntry = candidate;
+                }
+            }
+
+            const winnerIndex = gameState.players.findIndex(p => p.id === winningEntry.playerId);
+            if (winnerIndex !== -1) {
+                const winner = gameState.players[winnerIndex];
+                winner.score += 1;
+                gameState.turnIndex = winnerIndex;
+                playSound('winTrick');
+                showRoundWinnerBanner(`${winner.avatar} ${winner.name} wins the trick with ${winningEntry.card.rank}${winningEntry.card.suit}!`);
+                gameState.announcement = `${winner.name} won the trick! ${winner.name} leads the next trick.`;
+            }
+
+            gameState.tableCards = [];
+            gameState.leadSuit = null;
+            gameState.resolvingTrick = false;
+
+            const cardsLeft = gameState.players.reduce((sum, p) => sum + p.hand.length, 0);
+            if (cardsLeft === 0 && gameState.players.length > 0) {
+                const topPlayer = [...gameState.players].sort((a, b) => b.score - a.score)[0];
+                gameState.announcement = `🏁 Hand Complete! Leader: ${topPlayer.name} (${topPlayer.score} tricks). Click 'Deal Cards'!`;
+            }
+
+            syncSimulatorToActiveTurn();
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+            triggerBotMoveIfNeeded();
+        }
+
+        function evaluateThreeCardHand(cards) {
+            if (!cards || cards.length === 0) return { rankTier: 0, label: 'Folded', tieBreaker: 0 };
+            const sorted = [...cards].sort((a, b) => b.value - a.value);
+            const v0 = sorted[0]?.value || 0;
+            const v1 = sorted[1]?.value || 0;
+            const v2 = sorted[2]?.value || 0;
+
+            if (sorted.length < 3) {
+                return { rankTier: 1, label: `High Card ${sorted[0].rank}`, tieBreaker: v0 * 10000 + v1 * 100 + v2 };
+            }
+
+            const isFlush = (sorted[0].suit === sorted[1].suit) && (sorted[1].suit === sorted[2].suit);
+            const isAceLowStraight = (v0 === 14 && v1 === 3 && v2 === 2);
+            const isNormalStraight = (v0 - v1 === 1) && (v1 - v2 === 1);
+            const isStraight = isNormalStraight || isAceLowStraight;
+            const isTrail = (v0 === v1) && (v1 === v2);
+            const isPair = (v0 === v1) || (v1 === v2);
+
+            const baseScore = v0 * 10000 + v1 * 100 + v2;
+
+            if (isTrail) return { rankTier: 6, label: `Trail of ${sorted[0].rank}s`, tieBreaker: baseScore };
+            if (isFlush && isStraight) return { rankTier: 5, label: `Pure Sequence (${sorted[0].rank} High)`, tieBreaker: baseScore };
+            if (isStraight) return { rankTier: 4, label: `Sequence (${sorted[0].rank} High)`, tieBreaker: baseScore };
+            if (isFlush) return { rankTier: 3, label: `Color / Flush (${sorted[0].suit})`, tieBreaker: baseScore };
+            if (isPair) {
+                const pairVal = (v0 === v1) ? v0 : v1;
+                return { rankTier: 2, label: `Pair of ${v0 === v1 ? sorted[0].rank : sorted[1].rank}s`, tieBreaker: pairVal * 100000 + baseScore };
+            }
+            return { rankTier: 1, label: `High Card ${sorted[0].rank}`, tieBreaker: baseScore };
+        }
+
+        function evaluateShowdownNow() {
+            gameState.players.forEach(p => {
+                while (p.hand.length > 0) {
+                    const c = p.hand.pop();
+                    gameState.tableCards.push({
+                        card: c,
+                        playerId: p.id,
+                        playerName: p.name,
+                        playerAvatar: p.avatar,
+                        faceDown: false,
+                        rotation: (Math.random() * 10 - 5).toFixed(1)
+                    });
+                }
+            });
+
+            gameState.tableCards.forEach(tc => { tc.faceDown = false; });
+
+            let bestPlayer = null;
+            let bestEval = { rankTier: -1, tieBreaker: -1, label: '' };
+
+            gameState.players.forEach(p => {
+                const pCards = gameState.tableCards.filter(tc => tc.playerId === p.id).map(tc => tc.card);
+                const result = evaluateThreeCardHand(pCards);
+                p.lastHandLabel = result.label;
+                if (
+                    result.rankTier > bestEval.rankTier ||
+                    (result.rankTier === bestEval.rankTier && result.tieBreaker > bestEval.tieBreaker)
+                ) {
+                    bestEval = result;
+                    bestPlayer = p;
+                }
+            });
+
+            if (bestPlayer) {
+                bestPlayer.score += 1;
+                playSound('winTrick');
+                showRoundWinnerBanner(`👑 ${bestPlayer.name} wins Showdown with ${bestEval.label}!`);
+                gameState.announcement = `Showdown Winner: ${bestPlayer.name} (${bestEval.label})!`;
+            }
+
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+        }
+
+        function replenishDeckFromDiscard() {
+            if (gameState.deck.length === 0) {
+                const fresh = createDeck();
+                gameState.deck = fresh.slice(0, 26);
+            }
+        }
+
+        function playerDrawCard(playerId) {
+            const pIndex = gameState.players.findIndex(p => p.id === playerId);
+            if (pIndex === -1) return;
+            const player = gameState.players[pIndex];
+
+            if (gameState.gameMode === 'shedding' && pIndex !== gameState.turnIndex) {
+                showToast(`Wait for your turn to draw!`, 'error');
+                return;
+            }
+
+            if (gameState.deck.length === 0) {
+                replenishDeckFromDiscard();
+            }
+            if (gameState.deck.length === 0) {
+                showToast('Deck is empty!', 'error');
+                return;
+            }
+
+            const drawn = gameState.deck.pop();
+            player.hand.push(drawn);
+            sortHand(player.hand);
+            playSound('deal');
+
+            if (gameState.gameMode === 'shedding') {
+                const canPlayNow = player.hand.some(c => isCardPlayable(player, c));
+                if (!canPlayNow) {
+                    advanceTurn(1);
+                    gameState.announcement = `${player.name} drew a card & passed • ${gameState.players[gameState.turnIndex]?.name}'s turn`;
+                } else {
+                    gameState.announcement = `${player.name} drew a card from the deck`;
+                }
+            } else {
+                gameState.announcement = `${player.name} drew a card (${gameState.deck.length} left in deck)`;
+            }
+
+            syncSimulatorToActiveTurn();
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+            triggerBotMoveIfNeeded();
+        }
+
+        function manualCollectTableCards() {
+            if (gameState.tableCards.length === 0) {
+                showToast('No cards currently on the table!', 'info');
+                return;
+            }
+            if (gameState.gameMode === 'trick') {
+                resolveTrickWinner();
+                return;
+            }
+            const activePlayer = gameState.players[gameState.turnIndex];
+            if (activePlayer) {
+                activePlayer.score += 1;
+                showToast(`Cleared table pile (+1 trick/point to ${activePlayer.name})`, 'success');
+            }
+            gameState.tableCards = [];
+            gameState.leadSuit = null;
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+        }
+
+        function showRoundWinnerBanner(text) {
+            const toast = document.getElementById('roundResultToast');
+            const label = document.getElementById('roundResultText');
+            if (!toast || !label) return;
+            label.textContent = text;
+            toast.classList.remove('hidden');
+            toast.classList.add('inline-flex');
+        }
+
+        /*************************************************************************
+         * 8. SMART AI BOT TURN AUTOMATION
+         *************************************************************************/
+        function triggerBotMoveIfNeeded(forceCurrentPlayer = false) {
+            clearTimeout(botTimer);
+            if (gameState.resolvingTrick || gameState.players.length === 0) return;
+
+            const currentPlayer = gameState.players[gameState.turnIndex];
+            if (!currentPlayer || currentPlayer.hand.length === 0) return;
+
+            if (currentPlayer.isBot || forceCurrentPlayer) {
+                botTimer = setTimeout(() => {
+                    executeSmartBotTurn(currentPlayer);
+                }, forceCurrentPlayer ? 150 : 950);
+            }
+        }
+
+        function executeSmartBotTurn(botPlayer) {
+            if (!botPlayer || botPlayer.hand.length === 0 || gameState.resolvingTrick) return;
+
+            const playable = botPlayer.hand.filter(c => isCardPlayable(botPlayer, c));
+
+            if (playable.length === 0) {
+                if (gameState.gameMode === 'shedding') {
+                    playerDrawCard(botPlayer.id);
+                }
+                return;
+            }
+
+            let chosenCard = playable[0];
+            if (gameState.gameMode === 'trick') {
+                playable.sort((a, b) => b.value - a.value);
+                chosenCard = playable[0];
+            } else if (gameState.gameMode === 'shedding') {
+                const nonWild = playable.filter(c => c.rank !== '8');
+                chosenCard = nonWild.length > 0 ? nonWild[0] : playable[0];
+            } else {
+                chosenCard = playable[Math.floor(Math.random() * playable.length)];
+            }
+
+            let preferredSuit = null;
+            if (gameState.gameMode === 'shedding' && chosenCard.rank === '8') {
+                const counts = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
+                botPlayer.hand.forEach(c => { counts[c.suit] = (counts[c.suit] || 0) + 1; });
+                preferredSuit = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || '♠';
+            }
+
+            processPlayerCardThrow(botPlayer.id, chosenCard.id, preferredSuit, false);
+        }
+
+        /*************************************************************************
+         * 9. RENDERING ENGINE: CENTRAL LAPTOP TABLE & RADIAL SEATS (WITH REMOVE BUTTON)
+         *************************************************************************/
+        function getSeatCoordinates(index, total) {
+            const angleDeg = 90 + (360 / Math.max(1, total)) * index;
+            const angleRad = (angleDeg * Math.PI) / 180;
+            const rx = 44;
+            const ry = 42;
+            const left = 50 + rx * Math.cos(angleRad);
+            const top = 50 + ry * Math.sin(angleRad);
+            return { left: `${left.toFixed(1)}%`, top: `${top.toFixed(1)}%` };
+        }
+
+        function renderCardHTML(card, sizeClass = '', extraClasses = '', onClickAttr = '') {
+            const suitColorClass = card.isRed ? 'red-suit' : 'black-suit';
+            return `
+                <div ${onClickAttr} class="playing-card ${sizeClass} ${suitColorClass} ${extraClasses}">
+                    <div class="flex flex-col items-start leading-none">
+                        <span class="font-extrabold text-sm sm:text-base tracking-tighter">${card.rank}</span>
+                        <span class="text-xs sm:text-sm">${card.suit}</span>
+                    </div>
+                    <div class="self-center text-2xl sm:text-3xl my-auto leading-none select-none">
+                        ${card.suit}
+                    </div>
+                    <div class="flex flex-col items-end leading-none rotate-180">
+                        <span class="font-extrabold text-sm sm:text-base tracking-tighter">${card.rank}</span>
+                        <span class="text-xs sm:text-sm">${card.suit}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLaptopTableUI() {
+            const annEl = document.getElementById('tableAnnouncementText');
+            if (annEl) annEl.textContent = gameState.announcement;
+
+            const modeBadge = document.getElementById('feltModeBadge');
+            const leadBadge = document.getElementById('feltLeadSuitBadge');
+            const deckBadge = document.getElementById('feltDeckCountBadge');
+            const btnShowdown = document.getElementById('btnShowdownReveal');
+
+            if (btnShowdown) btnShowdown.classList.toggle('hidden', gameState.gameMode !== 'showdown');
+
+            if (modeBadge && leadBadge && deckBadge) {
+                if (gameState.gameMode === 'trick') {
+                    modeBadge.textContent = `♠️ Trick-Taking • Trump: ${gameState.trumpSuit}`;
+                    leadBadge.textContent = `Lead Suit: ${gameState.leadSuit || 'Any'}`;
+                } else if (gameState.gameMode === 'shedding') {
+                    modeBadge.textContent = `🔥 Crazy Eights (${gameState.turnDirection === 1 ? '↻ Clockwise' : '↺ Reversed'})`;
+                    leadBadge.textContent = `Active Suit: ${gameState.leadSuit || 'Any'} • Top: ${gameState.topDiscard ? gameState.topDiscard.rank + gameState.topDiscard.suit : '-'}`;
+                } else if (gameState.gameMode === 'showdown') {
+                    modeBadge.textContent = `👑 Teen Patti 3-Card Showdown`;
+                    leadBadge.textContent = `Pot Cards: ${gameState.tableCards.length}`;
+                } else {
+                    modeBadge.textContent = `🎲 Free Table Sandbox`;
+                    leadBadge.textContent = `Table Pile: ${gameState.tableCards.length} cards`;
+                }
+                deckBadge.textContent = `Deck: ${gameState.deck.length}`;
+            }
+
+            // Render Player Seats around the Casino Table with Direct Remove (✕) Button
+            const seatsContainer = document.getElementById('tableSeatsContainer');
+            if (seatsContainer) {
+                seatsContainer.innerHTML = '';
+                const total = gameState.players.length;
+
+                gameState.players.forEach((player, idx) => {
+                    const pos = getSeatCoordinates(idx, total);
+                    const isTurn = (idx === gameState.turnIndex) && !gameState.resolvingTrick;
+                    const isSelectedSim = (player.id === simState.activeSimPlayerId);
+
+                    const visibleBacks = Math.min(7, player.hand.length);
+                    let miniBacksHTML = '';
+                    for (let b = 0; b < visibleBacks; b++) {
+                        const rot = (b - (visibleBacks - 1) / 2) * 8;
+                        miniBacksHTML += `<div class="w-3.5 h-5 rounded-sm playing-card-back inline-block -ml-1.5 first:ml-0" style="transform: rotate(${rot}deg);"></div>`;
+                    }
+
+                    const badgeType = player.connectionType === 'p2p'
+                        ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">📱 Live Phone</span>`
+                        : player.isBot
+                            ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">🤖 AI Bot</span>`
+                            : `<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">📱 Sim Phone</span>`;
+
+                    const seatEl = document.createElement('div');
+                    seatEl.id = `seat_${player.id}`;
+                    seatEl.style.left = pos.left;
+                    seatEl.style.top = pos.top;
+                    seatEl.className = `absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-pointer transition transform hover:scale-105 z-20`;
+                    seatEl.onclick = () => selectSimPlayerTab(player.id);
+
+                    seatEl.innerHTML = `
+                        <div class="relative bg-slate-900/95 backdrop-blur-md border-2 ${isTurn ? 'active-seat-ring' : isSelectedSim ? 'border-indigo-400' : 'border-slate-700'} rounded-2xl px-3 py-2 min-w-[136px] sm:min-w-[154px] shadow-xl group">
+                            <!-- Direct Remove Player Button on Laptop Seat -->
+                            <button onclick="event.stopPropagation(); removePlayer('${player.id}')" title="Remove ${player.name} from table" class="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center shadow-lg border border-rose-400 transition transform hover:scale-110 z-30">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+
+                            <!-- Floating Emoji Anchor -->
+                            <div id="emojiAnchor_${player.id}" class="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"></div>
+
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-base shrink-0">
+                                        ${player.avatar}
+                                    </div>
+                                    <div class="text-left">
+                                        <div class="font-bold text-xs text-white leading-tight truncate max-w-[82px]">${player.name}</div>
+                                        ${badgeType}
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[10px] text-slate-400 block">Score</span>
+                                    <span class="font-display font-extrabold text-xs text-amber-400">${player.score}</span>
+                                </div>
+                            </div>
+
+                            <!-- Card Count & Mini Fan -->
+                            <div class="mt-1.5 pt-1.5 border-t border-slate-800/90 flex items-center justify-between">
+                                <div class="flex items-center pl-1">${miniBacksHTML}</div>
+                                <span class="text-[10px] font-bold ${player.hand.length === 0 ? 'text-slate-500' : 'text-emerald-400'}">
+                                    ${player.hand.length} ${player.hand.length === 1 ? 'card' : 'cards'}
+                                </span>
+                            </div>
+                            ${player.lastHandLabel && gameState.gameMode === 'showdown' ? `<div class="mt-1 text-[10px] font-bold text-amber-300 text-center bg-amber-500/10 rounded py-0.5">${player.lastHandLabel}</div>` : ''}
+                        </div>
+                    `;
+                    seatsContainer.appendChild(seatEl);
+                });
+            }
+
+            // Render Central Thrown Cards Arena
+            const arena = document.getElementById('thrownCardsArena');
+            const emptyPrompt = document.getElementById('emptyArenaPrompt');
+
+            if (arena && emptyPrompt) {
+                Array.from(arena.children).forEach(child => {
+                    if (child.id !== 'emptyArenaPrompt') child.remove();
+                });
+
+                if (gameState.tableCards.length === 0) {
+                    emptyPrompt.classList.remove('hidden');
+                } else {
+                    emptyPrompt.classList.add('hidden');
+                    gameState.tableCards.forEach((entry, idx) => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'flex flex-col items-center animate-card-throw';
+                        wrapper.style.setProperty('--card-rot', `${entry.rotation}deg`);
+                        wrapper.style.transform = `rotate(${entry.rotation}deg)`;
+
+                        let cardVisual = '';
+                        if (entry.faceDown) {
+                            cardVisual = `
+                                <div onclick="flipTableCard(${idx})" title="Click to flip face-up" class="playing-card playing-card-back flex items-center justify-center">
+                                    <span class="text-xs font-bold text-white/80 bg-black/40 px-2 py-0.5 rounded">FLIP</span>
+                                </div>
+                            `;
+                        } else {
+                            cardVisual = renderCardHTML(entry.card);
+                        }
+
+                        wrapper.innerHTML = `
+                            ${cardVisual}
+                            <span class="mt-1.5 px-2 py-0.5 rounded-full bg-slate-950/90 border border-slate-700 text-[10px] font-bold text-slate-200 shadow">
+                                ${entry.playerAvatar} ${entry.playerName}
+                            </span>
+                        `;
+                        arena.appendChild(wrapper);
+                    });
+                }
+            }
+
+            renderSimulatorDockUI();
+        }
+
+        function flipTableCard(index) {
+            if (gameState.tableCards[index]) {
+                gameState.tableCards[index].faceDown = !gameState.tableCards[index].faceDown;
+                playSound('cardThrow');
+                renderLaptopTableUI();
+            }
+        }
+
+        /*************************************************************************
+         * 10. SPLIT-SCREEN VIRTUAL PHONE SIMULATOR DOCK
+         *************************************************************************/
+        function toggleSimulatorDrawer() {
+            const dock = document.getElementById('simulatorDock');
+            if (dock) dock.classList.toggle('hidden');
+        }
+
+        function getActiveSimPlayerId() {
+            if (!simState.activeSimPlayerId && gameState.players.length > 0) {
+                simState.activeSimPlayerId = gameState.players[0].id;
+            }
+            return simState.activeSimPlayerId;
+        }
+
+        function selectSimPlayerTab(playerId) {
+            simState.activeSimPlayerId = playerId;
+            simState.selectedCardId = null;
+            const wildPicker = document.getElementById('simWildSuitPicker');
+            if (wildPicker) wildPicker.classList.add('hidden');
+            renderSimulatorDockUI();
+        }
+
+        function syncSimulatorToActiveTurn() {
+            const autoSwitch = document.getElementById('chkAutoSwitchTurn');
+            if (autoSwitch && autoSwitch.checked && gameState.players[gameState.turnIndex]) {
+                simState.activeSimPlayerId = gameState.players[gameState.turnIndex].id;
+                simState.selectedCardId = null;
+            }
+        }
+
+        function toggleSimPlayerBotMode() {
+            const player = gameState.players.find(p => p.id === getActiveSimPlayerId());
+            if (!player) return;
+            player.isBot = !player.isBot;
+            player.connectionType = player.isBot ? 'bot' : 'sim';
+            showToast(`${player.name} is now controlled by ${player.isBot ? 'AI Bot' : 'Human Phone Controller'}`, 'info');
+            renderLaptopTableUI();
+            if (player.isBot) triggerBotMoveIfNeeded();
+        }
+
+        function renderSimulatorDockUI() {
+            const tabsContainer = document.getElementById('simPlayerTabs');
+            if (!tabsContainer) return;
+            tabsContainer.innerHTML = '';
+
+            const activeId = getActiveSimPlayerId();
+            const activePlayer = gameState.players.find(p => p.id === activeId) || gameState.players[0];
+            const handContainer = document.getElementById('simPhoneHandContainer');
+
+            if (!activePlayer) {
+                if (handContainer) handContainer.innerHTML = `<p class="text-xs text-slate-500 italic py-8">No players seated</p>`;
+                return;
+            }
+
+            gameState.players.forEach((p, idx) => {
+                const isSelected = p.id === activePlayer.id;
+                const isTurn = idx === gameState.turnIndex;
+                const btn = document.createElement('button');
+                btn.onclick = () => selectSimPlayerTab(p.id);
+                btn.className = `px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition border ${
+                    isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-400 shadow'
+                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                }`;
+                btn.innerHTML = `
+                    <span>${p.avatar}</span>
+                    <span>${p.name}</span>
+                    ${isTurn ? '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>' : ''}
+                `;
+                tabsContainer.appendChild(btn);
+            });
+
+            document.getElementById('simPhoneHeaderName').textContent = `${activePlayer.avatar} ${activePlayer.name}'s Mobile Hand`;
+            document.getElementById('simPhoneCardCount').textContent = `${activePlayer.hand.length} Cards`;
+
+            const isMyTurn = gameState.players[gameState.turnIndex]?.id === activePlayer.id;
+            const turnBanner = document.getElementById('simPhoneTurnBanner');
+            if (isMyTurn) {
+                turnBanner.className = 'px-3 py-2 text-center text-xs font-extrabold bg-emerald-600 text-white tracking-wide';
+                turnBanner.innerHTML = `<i class="fa-solid fa-bolt mr-1"></i> YOUR TURN TO THROW A CARD!`;
+            } else {
+                const turnName = gameState.players[gameState.turnIndex]?.name || 'Player';
+                turnBanner.className = 'px-3 py-2 text-center text-xs font-semibold bg-slate-800 text-slate-300';
+                turnBanner.textContent = `Waiting for ${turnName} to throw...`;
+            }
+
+            const botBtn = document.getElementById('btnSimBotToggle');
+            botBtn.textContent = activePlayer.isBot ? '🤖 AI Bot (Tap for Human)' : '🖐️ Human Phone';
+            botBtn.className = activePlayer.isBot
+                ? 'px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold'
+                : 'px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold';
+
+            document.getElementById('btnSimDrawCard').classList.toggle('hidden', !(gameState.gameMode === 'shedding' || gameState.gameMode === 'sandbox'));
+            document.getElementById('btnSimThrowFaceDown').classList.toggle('hidden', !(gameState.gameMode === 'sandbox' || gameState.gameMode === 'showdown'));
+
+            handContainer.innerHTML = '';
+
+            if (activePlayer.hand.length === 0) {
+                handContainer.innerHTML = `<p class="text-xs text-slate-500 italic py-8">No cards remaining in hand</p>`;
+                return;
+            }
+
+            if (!simState.selectedCardId || !activePlayer.hand.some(c => c.id === simState.selectedCardId)) {
+                const firstPlayable = activePlayer.hand.find(c => isCardPlayable(activePlayer, c));
+                simState.selectedCardId = firstPlayable ? firstPlayable.id : activePlayer.hand[0].id;
+            }
+
+            activePlayer.hand.forEach(card => {
+                const playable = isCardPlayable(activePlayer, card);
+                const isSelected = card.id === simState.selectedCardId;
+                const extra = `${isSelected ? 'selected-card' : ''} ${!playable && isMyTurn ? 'invalid-card' : ''}`;
+                const cardWrapper = document.createElement('div');
+                cardWrapper.className = '-ml-3 first:ml-0 transition hover:z-30';
+                cardWrapper.innerHTML = renderCardHTML(
+                    card,
+                    'card-sm',
+                    extra,
+                    `onclick="selectCardOnPhone('${card.id}', true)" ondblclick="selectCardOnPhone('${card.id}', true); throwSelectedCardFromPhone(true);"`
+                );
+                handContainer.appendChild(cardWrapper);
+            });
+        }
+
+        function selectCardOnPhone(cardId, isSimulator) {
+            if (isSimulator) {
+                simState.selectedCardId = cardId;
+                document.getElementById('simWildSuitPicker').classList.add('hidden');
+                renderSimulatorDockUI();
+            } else {
+                clientState.selectedCardId = cardId;
+                document.getElementById('mobWildSuitPicker').classList.add('hidden');
+                renderMobileHandCardsOnly();
+            }
+        }
+
+        function throwSelectedCardFromPhone(isSimulator, faceDown = false) {
+            if (isSimulator) {
+                const player = gameState.players.find(p => p.id === getActiveSimPlayerId());
+                if (!player || !simState.selectedCardId) return;
+                const card = player.hand.find(c => c.id === simState.selectedCardId);
+                if (!card) return;
+
+                if (gameState.gameMode === 'shedding' && card.rank === '8' && !faceDown) {
+                    simState.pendingWildCard = card.id;
+                    document.getElementById('simWildSuitPicker').classList.remove('hidden');
+                    return;
+                }
+                processPlayerCardThrow(player.id, card.id, null, faceDown);
+            } else {
+                if (!clientState.selectedCardId) {
+                    showToast('Tap a card in your hand first!', 'error');
+                    return;
+                }
+                const card = clientState.myHand.find(c => c.id === clientState.selectedCardId);
+                if (!card) return;
+
+                if (gameState.gameMode === 'shedding' && card.rank === '8' && !faceDown) {
+                    clientState.pendingWildCard = card.id;
+                    document.getElementById('mobWildSuitPicker').classList.remove('hidden');
+                    return;
+                }
+
+                sendMobileActionToHost({
+                    type: 'THROW_CARD',
+                    roomCode: clientState.roomCode,
+                    playerId: clientState.myPlayerId,
+                    cardId: card.id,
+                    faceDown: faceDown
+                });
+            }
+        }
+
+        function confirmWildSuit(chosenSuit, isSimulator) {
+            if (isSimulator) {
+                document.getElementById('simWildSuitPicker').classList.add('hidden');
+                const player = gameState.players.find(p => p.id === getActiveSimPlayerId());
+                if (player && simState.pendingWildCard) {
+                    processPlayerCardThrow(player.id, simState.pendingWildCard, chosenSuit, false);
+                    simState.pendingWildCard = null;
+                }
+            } else {
+                document.getElementById('mobWildSuitPicker').classList.add('hidden');
+                if (clientState.pendingWildCard) {
+                    sendMobileActionToHost({
+                        type: 'THROW_CARD',
+                        roomCode: clientState.roomCode,
+                        playerId: clientState.myPlayerId,
+                        cardId: clientState.pendingWildCard,
+                        chosenSuit: chosenSuit,
+                        faceDown: false
+                    });
+                    clientState.pendingWildCard = null;
+                }
+            }
+        }
+
+        function sendMobileActionToHost(payload) {
+            const packet = {
+                ...payload,
+                msgId: createUniqueMsgId()
+            };
+            if (localBroadcast) {
+                try { localBroadcast.postMessage(packet); } catch (e) {}
+            }
+            publishToAllMqttRelays(clientState.roomCode, packet);
+            if (hostConn && hostConn.open) {
+                try { hostConn.send(packet); } catch (e) {}
+            }
+        }
+
+        function requestMobileDrawCard() {
+            sendMobileActionToHost({
+                type: 'DRAW_CARD',
+                roomCode: clientState.roomCode,
+                playerId: clientState.myPlayerId
+            });
+        }
+
+        /*************************************************************************
+         * 11. FULL-SCREEN MOBILE PLAYER CONTROLLER UI RENDERING
+         *************************************************************************/
+        function renderMobileControllerUI(syncData) {
+            gameState.gameMode = syncData.gameMode;
+            document.getElementById('mobPlayerScore').textContent = clientState.myScore;
+            document.getElementById('mobGameModeLabel').textContent = getModeDisplayName(syncData.gameMode);
+            document.getElementById('mobTableLeadLabel').textContent = syncData.leadSuit
+                ? `Suit: ${syncData.leadSuit}`
+                : 'Any Suit';
+            document.getElementById('mobHandCountBadge').textContent = `${clientState.myHand.length} Cards`;
+
+            const isMyTurn = syncData.turnPlayerId === clientState.myPlayerId;
+            const banner = document.getElementById('mobTurnBanner');
+            if (isMyTurn) {
+                banner.className = 'py-3 px-4 rounded-2xl text-center font-extrabold text-sm tracking-wide shadow-lg bg-emerald-600 text-white animate-pulse';
+                banner.innerHTML = `<i class="fa-solid fa-hand-pointer mr-1"></i> YOUR TURN! SELECT & THROW A CARD`;
+            } else {
+                banner.className = 'py-3 px-4 rounded-2xl text-center font-bold text-xs tracking-wide bg-slate-900 border border-slate-800 text-slate-300';
+                banner.textContent = `Waiting for ${syncData.turnPlayerName || 'next player'}...`;
+            }
+
+            document.getElementById('btnMobDrawCard').classList.toggle('hidden', !(syncData.gameMode === 'shedding' || syncData.gameMode === 'sandbox'));
+            document.getElementById('btnMobThrowBlind').classList.toggle('hidden', !(syncData.gameMode === 'sandbox' || syncData.gameMode === 'showdown'));
+
+            renderMobileHandCardsOnly();
+        }
+
+        function renderMobileHandCardsOnly() {
+            const container = document.getElementById('mobHandContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (clientState.myHand.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-500 italic py-8">Your hand is empty! Waiting for next deal...</p>`;
+                return;
+            }
+
+            if (!clientState.selectedCardId || !clientState.myHand.some(c => c.id === clientState.selectedCardId)) {
+                clientState.selectedCardId = clientState.myHand[0].id;
+            }
+
+            clientState.myHand.forEach(card => {
+                const isSelected = card.id === clientState.selectedCardId;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'transition';
+                wrapper.innerHTML = renderCardHTML(
+                    card,
+                    'card-lg',
+                    isSelected ? 'selected-card' : '',
+                    `onclick="selectCardOnPhone('${card.id}', false)"`
+                );
+                container.appendChild(wrapper);
+            });
+        }
+
+        /*************************************************************************
+         * 12. LIVE EMOJI REACTIONS, QR CODE MODAL & GITHUB PAGES EXPORT
+         *************************************************************************/
+        function sendEmojiReaction(playerId, emoji, fromRemote = false) {
+            if (clientState.isMobileClient && !fromRemote) {
+                sendMobileActionToHost({
+                    type: 'EMOJI_REACT',
+                    roomCode: clientState.roomCode,
+                    playerId: clientState.myPlayerId,
+                    emoji: emoji
+                });
+                showToast(`Sent ${emoji} to Laptop Table!`, 'info');
+                return;
+            }
+
+            playSound('emoji');
+            const anchor = document.getElementById(`emojiAnchor_${playerId}`);
+            if (anchor) {
+                const bubble = document.createElement('div');
+                bubble.className = 'text-3xl emoji-pop select-none';
+                bubble.textContent = emoji;
+                anchor.appendChild(bubble);
+                setTimeout(() => bubble.remove(), 2200);
+            }
+        }
+
+        function openQRModal() {
+            const modal = document.getElementById('qrModal');
+            modal.classList.remove('hidden');
+            document.getElementById('modalRoomCodeDisplay').textContent = gameState.roomCode;
+
+            const customInput = document.getElementById('customPublicUrlInput');
+            const rawHref = window.location.href.split('?')[0];
+            const isSandbox = rawHref.startsWith('about:') || rawHref.startsWith('blob:') || rawHref.startsWith('data:') || rawHref.includes('googleusercontent.com');
+
+            const savedPublicUrl = localStorage.getItem('tabledeck_public_url') || '';
+            if (savedPublicUrl) {
+                customInput.value = savedPublicUrl;
+            } else if (!isSandbox) {
+                customInput.value = rawHref;
+            }
+
+            updateQRWithCustomUrl();
+        }
+
+        function updateQRWithCustomUrl() {
+            const customInput = document.getElementById('customPublicUrlInput');
+            const rawHref = window.location.href.split('?')[0];
+            let baseUrl = (customInput && customInput.value.trim()) ? customInput.value.trim().split('?')[0] : rawHref;
+
+            if (customInput && customInput.value.trim()) {
+                try { localStorage.setItem('tabledeck_public_url', baseUrl); } catch (e) {}
+            }
+
+            const joinUrl = `${baseUrl}?room=${gameState.roomCode}`;
+            document.getElementById('shareableJoinLink').value = joinUrl;
+
+            const qrContainer = document.getElementById('qrcodeContainer');
+            qrContainer.innerHTML = '';
+            try {
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(qrContainer, {
+                        text: joinUrl,
+                        width: 170,
+                        height: 170,
+                        colorDark: '#0f172a',
+                        colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                } else {
+                    qrContainer.innerHTML = `<div class="p-4 text-xs text-slate-800 font-mono">${joinUrl}</div>`;
+                }
+            } catch (e) {
+                qrContainer.innerHTML = `<div class="p-4 text-xs text-slate-800 font-mono">${joinUrl}</div>`;
+            }
+        }
+
+        function closeQRModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        function copyJoinUrl() {
+            const input = document.getElementById('shareableJoinLink');
+            input.select();
+            document.execCommand('copy');
+            showToast('Room Join Link copied to clipboard!', 'success');
+        }
+
+        function openGithubModal() {
+            document.getElementById('githubModal').classList.remove('hidden');
+        }
+
+        function closeGithubModal() {
+            document.getElementById('githubModal').classList.add('hidden');
+        }
+
+        function downloadStandaloneHTML() {
+            const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'index.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Downloaded index.html! Ready to upload to GitHub Pages.', 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            const colorClasses = type === 'error'
+                ? 'bg-red-950/95 border-red-500/50 text-red-200'
+                : type === 'success'
+                    ? 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200'
+                    : 'bg-slate-900/95 border-slate-700 text-slate-200';
+
+            toast.className = `px-4 py-2.5 rounded-xl border shadow-xl text-xs font-semibold flex items-center gap-2 transition-all duration-300 ${colorClasses}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation text-red-400' : type === 'success' ? 'fa-circle-check text-emerald-400' : 'fa-bell text-amber-400'}"></i>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // Explicitly bind critical functions to global window scope
+        window.dealNewRound = dealNewRound;
+        window.dealOneMoreCardToAll = dealOneMoreCardToAll;
+        window.clearTableTrick = clearTableTrick;
+        window.removePlayer = removePlayer;
+        window.removeAllVirtualPlayers = removeAllVirtualPlayers;
+        window.openManagePlayersModal = openManagePlayersModal;
+        window.closeManagePlayersModal = closeManagePlayersModal;
+        window.startLaptopHost = startLaptopHost;
+        window.startMobileClient = startMobileClient;
+        window.startInstantSplitScreenDemo = startInstantSplitScreenDemo;
+        window.manualResyncMobile = manualResyncMobile;
+    </script>
+</body>
+</html>
