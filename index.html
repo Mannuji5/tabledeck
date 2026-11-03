@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PeerJS for Serverless WebRTC P2P (GitHub Pages compatible) -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- MQTT.js over WSS for Automatic iPhone / Firewall Relay Fallback -->
+    <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
     <!-- QRCode.js for scanning Room Join URL on Mobile -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Font Awesome Icons -->
@@ -354,11 +356,11 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">4-Letter Room Code</label>
-                                    <input id="joinRoomCodeInput" type="text" maxlength="6" placeholder="e.g. DECK" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base font-mono font-bold uppercase tracking-widest text-amber-400 focus:outline-none focus:border-amber-500">
+                                    <input id="joinRoomCodeInput" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" inputmode="text" placeholder="e.g. DECK" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base font-mono font-bold uppercase tracking-widest text-amber-400 focus:outline-none focus:border-amber-500">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Your Player Name</label>
-                                    <input id="joinPlayerNameInput" type="text" maxlength="14" placeholder="Alex" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+                                    <input id="joinPlayerNameInput" type="text" maxlength="14" autocomplete="off" placeholder="Alex" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
                                 </div>
                             </div>
 
@@ -380,7 +382,7 @@
                     </div>
 
                     <button id="btnConnectMobile" onclick="startMobileClient()" class="mt-6 w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-900/40 flex items-center justify-center gap-2 transition">
-                        <i class="fa-solid fa-gamepad"></i> Connect Phone as Hand Controller
+                        <i class="fa-solid fa-mobile-screen-button"></i> Connect iPhone / Android Hand Controller
                     </button>
                 </div>
 
@@ -416,6 +418,7 @@
                             <option value="4" selected class="bg-slate-900 text-white">4 Seats</option>
                             <option value="5" class="bg-slate-900 text-white">5 Seats</option>
                             <option value="6" class="bg-slate-900 text-white">6 Seats</option>
+                            <option value="7" class="bg-slate-900 text-white">7 Seats</option>
                             <option value="8" class="bg-slate-900 text-white">8 Seats</option>
                         </select>
                     </div>
@@ -431,15 +434,18 @@
                     <span id="tableAnnouncementText">Waiting for players to throw cards...</span>
                 </div>
 
-                <!-- Right: Deal / Collect / QR Buttons -->
-                <div class="flex items-center gap-1.5">
-                    <button id="btnShowdownReveal" onclick="evaluateShowdownNow()" class="hidden px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition">
+                <!-- Right: Deal / +1 Card / Collect / Showdown Buttons -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button id="btnShowdownReveal" onclick="evaluateShowdownNow()" class="hidden px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow">
                         <i class="fa-solid fa-eye"></i> Showdown Reveal
                     </button>
-                    <button id="btnCollectTablePile" onclick="manualCollectTableCards()" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition" title="Clear or award cards currently on table">
-                        <i class="fa-solid fa-broom text-amber-400 mr-1"></i> Clear / Next Trick
+                    <button onclick="dealOneCardToAllOrActive()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs font-bold transition" title="Deal +1 extra card to current turn player">
+                        <i class="fa-solid fa-plus text-indigo-400 mr-0.5"></i> +1 Card
                     </button>
-                    <button onclick="dealNewRound()" class="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow transition flex items-center gap-1">
+                    <button id="btnCollectTablePile" onclick="manualCollectTableCards()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition" title="Clear or award cards currently on table">
+                        <i class="fa-solid fa-broom text-amber-400 mr-1"></i> Clear Table
+                    </button>
+                    <button id="btnTopDealCards" onclick="dealNewRound()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-950 transition flex items-center gap-1.5 active:scale-95 cursor-pointer">
                         <i class="fa-solid fa-shuffle"></i> Deal New Hand
                     </button>
                 </div>
@@ -469,18 +475,26 @@
                         </div>
 
                         <!-- CENTRAL THROWN CARDS DROP ZONE -->
-                        <div id="thrownCardsArena" class="min-h-[165px] w-full flex flex-wrap items-center justify-center gap-3 px-4 py-3 rounded-3xl bg-black/20 border border-white/10 backdrop-blur-[2px] relative">
+                        <div id="thrownCardsArena" class="min-h-[175px] w-full flex flex-wrap items-center justify-center gap-3 px-4 py-3 rounded-3xl bg-black/25 border border-white/10 backdrop-blur-[2px] relative">
                             <!-- Empty State when no cards thrown yet -->
-                            <div id="emptyArenaPrompt" class="text-center py-6 px-4">
-                                <div class="text-emerald-300/60 text-2xl mb-1">
-                                    <i class="fa-solid fa-hand-sparkles"></i>
+                            <div id="emptyArenaPrompt" class="text-center py-4 px-4 flex flex-col items-center">
+                                <div class="text-emerald-300/70 text-2xl mb-1">
+                                    <i class="fa-solid fa-layer-group"></i>
                                 </div>
-                                <p class="text-xs sm:text-sm font-medium text-emerald-100/70">
-                                    Cards thrown from player phones appear here in real time
+                                <p class="text-xs sm:text-sm font-semibold text-emerald-100/90">
+                                    Table Ready — Waiting for First Card Throw
                                 </p>
-                                <p class="text-[11px] text-emerald-200/50 mt-0.5">
-                                    Scan Room QR Code on mobile or use the Split-Screen Phone Dock to throw a card!
+                                <p class="text-[11px] text-emerald-200/60 mt-0.5 mb-3">
+                                    Throw a card from your iPhone / Mobile Controller or use the Phone Simulator Dock on the right!
                                 </p>
+                                <div class="flex flex-wrap items-center justify-center gap-2">
+                                    <button onclick="dealNewRound()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-lg transition flex items-center gap-1.5 active:scale-95">
+                                        <i class="fa-solid fa-shuffle"></i> Deal / Redeal Cards Now
+                                    </button>
+                                    <button onclick="openQRModal()" class="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold text-xs transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-mobile-screen"></i> Connect iPhone (Code: <span id="arenaRoomCodeText" class="font-mono underline">DECK</span>)
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -708,39 +722,52 @@
 
     <!-- ================= MODAL 1: QR CODE & PHONE JOIN INSTRUCTIONS ================= -->
     <div id="qrModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl text-center relative">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl text-center relative max-h-[92vh] overflow-y-auto">
             <button onclick="closeQRModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
                 <i class="fa-solid fa-xmark"></i>
             </button>
             <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto mb-3 text-xl">
                 <i class="fa-solid fa-qrcode"></i>
             </div>
-            <h3 class="font-display text-xl font-bold text-white">Connect Player Phones</h3>
-            <p class="text-xs text-slate-400 mt-1 mb-4">
-                Scan with your phone camera or open this site on mobile and enter the Room Code:
+            <h3 class="font-display text-xl font-bold text-white">Connect iPhone & Android Phones</h3>
+            <p class="text-xs text-slate-400 mt-1 mb-3">
+                Open your hosted URL on any iPhone/Android and enter this 4-letter Room Code, or scan the QR code below:
             </p>
 
             <!-- Big Room Code -->
-            <div class="inline-block px-6 py-2 rounded-2xl bg-slate-950 border border-emerald-500/40 font-mono text-3xl font-extrabold tracking-widest text-emerald-400 mb-4" id="modalRoomCodeDisplay">
+            <div class="inline-block px-6 py-2 rounded-2xl bg-slate-950 border border-emerald-500/40 font-mono text-3xl font-extrabold tracking-widest text-emerald-400 mb-3" id="modalRoomCodeDisplay">
                 DECK
             </div>
 
+            <!-- Sandbox / Custom GitHub Pages URL Input for QR Code -->
+            <div id="customQrUrlBox" class="mb-3 text-left bg-slate-950/90 p-3 rounded-2xl border border-amber-500/40">
+                <label class="block text-[11px] font-bold text-amber-300 uppercase tracking-wider mb-1">
+                    <i class="fa-brands fa-github mr-1"></i> Public / GitHub Pages URL for QR Code:
+                </label>
+                <p id="sandboxUrlWarning" class="text-[11px] text-slate-400 mb-2">
+                    If you are previewing inside an editor/sandbox, paste your live GitHub Pages URL below so your iPhone camera scans a public web link:
+                </p>
+                <div class="flex items-center gap-1.5">
+                    <input id="customPublicUrlInput" type="url" placeholder="https://yourname.github.io/card-game/" oninput="updateQRWithCustomUrl()" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                </div>
+            </div>
+
             <!-- QR Code Container -->
-            <div class="bg-white p-4 rounded-2xl inline-block mx-auto mb-4 shadow-lg">
+            <div class="bg-white p-4 rounded-2xl inline-block mx-auto mb-3 shadow-lg">
                 <div id="qrcodeContainer"></div>
             </div>
 
             <!-- Copy Join Link -->
-            <div class="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 mb-4">
+            <div class="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 mb-3">
                 <input id="shareableJoinLink" type="text" readonly class="bg-transparent text-xs text-slate-300 flex-1 px-2 focus:outline-none">
                 <button onclick="copyJoinUrl()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
                     Copy Link
                 </button>
             </div>
 
-            <p class="text-[11px] text-slate-400">
-                <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Hosted on GitHub Pages? Scanning the QR code automatically connects any phone over WebRTC P2P!
-            </p>
+            <div class="text-[11px] text-slate-300 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5 text-left space-y-1">
+                <div><i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> <strong>iPhone Dual-Transport Active:</strong> Connects automatically via iOS-Safe JSON WebRTC <em>plus</em> Secure WebSocket Relay (MQTT over WSS) to bypass cellular/Wi-Fi NAT blocks.</div>
+            </div>
         </div>
     </div>
 
@@ -900,45 +927,45 @@
             tableCards: [],    // Cards currently thrown on the central table: { card, playerId, playerName, playerAvatar, faceDown, rotation }
             turnIndex: 0,
             turnDirection: 1,  // 1 = clockwise, -1 = counter-clockwise (used in Crazy Eights)
-            leadSuit: null,    // For Trick-Taking or active suit in Crazy Eights
-            trumpSuit: '♠',    // Spades default trump
-            topDiscard: null,  // For Crazy Eights shedding mode
-            roundActive: false,
-            announcement: 'Waiting to deal cards...',
-            resolvingTrick: false
-        };
-
-        // Simulator & Mobile Client Local State
-        let simState = {
-            activeSimPlayerId: null,
-            selectedCardId: null,
-            pendingWildCard: null
-        };
-
-        let clientState = {
-            isMobileClient: false,
-            myPlayerId: null,
-            myName: 'Player',
-            myAvatar: '😎',
-            roomCode: '',
-            selectedCardId: null,
-            pendingWildCard: null,
-            myHand: [],
-            myScore: 0
-        };
-
-        // Networking Objects (PeerJS + BroadcastChannel fallback)
+        // Networking Objects (PeerJS + MQTT over WSS Relay + BroadcastChannel fallback)
         let hostPeer = null;
         let clientPeer = null;
         let hostConn = null;
+        let mqttClient = null;
         let localBroadcast = null;
         let botTimer = null;
+        let processedMsgIds = new Set();
+
+        const PEER_ICE_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun.cloudflare.com:3478' }
+                ]
+            }
+        };
 
         try {
             localBroadcast = new BroadcastChannel('tabledeck_p2p_channel');
             localBroadcast.onmessage = (event) => handleBroadcastMessage(event.data);
         } catch (e) {
             console.warn('BroadcastChannel not supported in this context.');
+        }
+
+        function createUniqueMsgId() {
+            return 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+        }
+
+        function isDuplicateMsg(msg) {
+            if (!msg || !msg.msgId) return false;
+            if (processedMsgIds.has(msg.msgId)) return true;
+            processedMsgIds.add(msg.msgId);
+            if (processedMsgIds.size > 300) {
+                const first = processedMsgIds.values().next().value;
+                processedMsgIds.delete(first);
+            }
+            return false;
         }
 
         /*************************************************************************
@@ -1083,6 +1110,8 @@
             document.getElementById('navRoomBadge').classList.add('flex');
             document.getElementById('navRoomCode').textContent = gameState.roomCode;
             document.getElementById('bottomBarRoomCode').textContent = gameState.roomCode;
+            const arenaCodeEl = document.getElementById('arenaRoomCodeText');
+            if (arenaCodeEl) arenaCodeEl.textContent = gameState.roomCode;
             document.getElementById('btnToggleSimDrawer').classList.remove('hidden');
             document.getElementById('btnToggleSimDrawer').classList.add('inline-flex');
 
@@ -1090,51 +1119,140 @@
                 document.getElementById('simulatorDock').classList.remove('hidden');
             }
 
-            // Initialize PeerJS Host for Real Mobile Connections
-            initHostPeerJS(gameState.roomCode);
+            // Initialize Dual-Transport Host (PeerJS WebRTC + MQTT over WSS Relay for iPhones)
+            initHostNetworking(gameState.roomCode);
 
             // Deal initial round
             dealNewRound();
         }
 
         /*************************************************************************
-         * 5. PEERJS WEBRTC & BROADCASTCHANNEL MULTI-DEVICE NETWORKING
+         * 5. DUAL-TRANSPORT NETWORKING (iOS-SAFE WEBRTC + WSS MQTT RELAY + BROADCAST)
          *************************************************************************/
         function getPeerIdForRoom(code) {
-            return `tabledeck-p2p-room-${code.toUpperCase()}`;
+            return `tabledeck-v2-room-${code.toUpperCase()}`;
         }
 
-        function initHostPeerJS(roomCode) {
+        function getMqttTopicForRoom(code) {
+            return `tabledeck/v2/room/${code.toUpperCase()}`;
+        }
+
+        function updateNavNetworkBadge(text, isReady = true) {
+            const statusEl = document.getElementById('navNetStatus');
+            if (!statusEl) return;
+            statusEl.classList.remove('hidden');
+            statusEl.classList.add('inline-flex');
+            statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${isReady ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'}"></span> ${text}`;
+        }
+
+        function initHostNetworking(roomCode) {
+            // 1. Initialize PeerJS Host with STUN servers
             if (hostPeer) {
                 try { hostPeer.destroy(); } catch (e) {}
             }
-            const statusEl = document.getElementById('navNetStatus');
             try {
-                hostPeer = new Peer(getPeerIdForRoom(roomCode));
+                hostPeer = new Peer(getPeerIdForRoom(roomCode), PEER_ICE_CONFIG);
                 hostPeer.on('open', () => {
-                    if (statusEl) {
-                        statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> P2P Online (${roomCode})`;
-                    }
+                    updateNavNetworkBadge(`P2P + iPhone Relay (${roomCode})`, true);
                 });
                 hostPeer.on('connection', (conn) => {
+                    conn.on('open', () => {
+                        // Send immediate state sync when a phone opens connection
+                        broadcastStateToAllClients();
+                    });
                     conn.on('data', (data) => {
-                        handleIncomingClientMessage(data, conn);
+                        if (!isDuplicateMsg(data)) {
+                            handleIncomingClientMessage(data, conn);
+                        }
                     });
                     conn.on('close', () => {
-                        showToast('A mobile device disconnected', 'info');
+                        showToast('A mobile controller disconnected', 'info');
                     });
                 });
                 hostPeer.on('error', (err) => {
-                    console.warn('PeerJS Host Notice:', err.type);
+                    if (err && err.type === 'unavailable-id') {
+                        // Room code collision: regenerate clean 4-letter code
+                        gameState.roomCode = generateRoomCode();
+                        document.getElementById('navRoomCode').textContent = gameState.roomCode;
+                        document.getElementById('bottomBarRoomCode').textContent = gameState.roomCode;
+                        const arenaCodeEl = document.getElementById('arenaRoomCodeText');
+                        if (arenaCodeEl) arenaCodeEl.textContent = gameState.roomCode;
+                        initHostNetworking(gameState.roomCode);
+                    } else {
+                        console.warn('PeerJS Host Notice:', err?.type || err);
+                    }
                 });
             } catch (e) {
-                console.warn('PeerJS init fallback to local sync:', e);
+                console.warn('PeerJS Host fallback to WSS Relay:', e);
+            }
+
+            // 2. Initialize Parallel MQTT over WSS Relay (100% iPhone Safari / Cellular NAT compatible)
+            initMqttRelay(roomCode, true);
+        }
+
+        function initMqttRelay(roomCode, isHost) {
+            if (typeof mqtt === 'undefined') return;
+            if (mqttClient) {
+                try { mqttClient.end(true); } catch (e) {}
+            }
+            const topic = getMqttTopicForRoom(roomCode);
+            try {
+                mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+                    clientId: 'td_' + (isHost ? 'host_' : 'mob_') + Math.random().toString(16).substring(2, 10),
+                    clean: true,
+                    connectTimeout: 5000,
+                    reconnectPeriod: 2000
+                });
+
+                mqttClient.on('connect', () => {
+                    mqttClient.subscribe(topic, { qos: 0 }, (err) => {
+                        if (!err) {
+                            if (isHost) {
+                                updateNavNetworkBadge(`iPhone Relay Ready (${roomCode})`, true);
+                            } else if (clientState.isMobileClient) {
+                                // Immediately announce join over WSS Relay so iPhones connect in <1s
+                                publishMqttMessage(roomCode, {
+                                    msgId: createUniqueMsgId(),
+                                    type: 'JOIN_REQUEST',
+                                    roomCode: roomCode,
+                                    playerId: clientState.myPlayerId,
+                                    name: clientState.myName,
+                                    avatar: clientState.myAvatar
+                                });
+                            }
+                        }
+                    });
+                });
+
+                mqttClient.on('message', (receivedTopic, payloadBuffer) => {
+                    try {
+                        const data = JSON.parse(payloadBuffer.toString());
+                        if (isDuplicateMsg(data)) return;
+                        if (isHost && !clientState.isMobileClient) {
+                            handleIncomingClientMessage(data, null);
+                        } else if (!isHost && clientState.isMobileClient && data.type === 'STATE_SYNC') {
+                            handleClientReceiveState(data);
+                        }
+                    } catch (err) {
+                        console.warn('MQTT packet parse warning:', err);
+                    }
+                });
+            } catch (e) {
+                console.warn('MQTT WSS Relay error:', e);
+            }
+        }
+
+        function publishMqttMessage(roomCode, payloadObj) {
+            if (mqttClient && mqttClient.connected) {
+                try {
+                    mqttClient.publish(getMqttTopicForRoom(roomCode), JSON.stringify(payloadObj), { qos: 0 });
+                } catch (e) {}
             }
         }
 
         function startMobileClient() {
             const rawCode = document.getElementById('joinRoomCodeInput').value.trim().toUpperCase();
-            const playerName = document.getElementById('joinPlayerNameInput').value.trim() || 'Mobile Player';
+            const playerName = document.getElementById('joinPlayerNameInput').value.trim() || 'iPhone Player';
 
             if (!rawCode || rawCode.length < 2) {
                 showToast('Please enter the 4-letter Room Code shown on the Laptop screen!', 'error');
@@ -1144,7 +1262,9 @@
             clientState.isMobileClient = true;
             clientState.roomCode = rawCode;
             clientState.myName = playerName;
-            clientState.myPlayerId = 'mob_' + Math.random().toString(36).substring(2, 8);
+            if (!clientState.myPlayerId) {
+                clientState.myPlayerId = 'mob_' + Math.random().toString(36).substring(2, 8);
+            }
 
             // Switch UI to Full-Screen Mobile Hand Controller
             document.getElementById('landingView').classList.add('hidden');
@@ -1155,59 +1275,91 @@
             document.getElementById('mobPlayerAvatar').textContent = clientState.myAvatar;
             document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Connecting to Room ${rawCode}...`;
 
+            const joinPacket = {
+                msgId: createUniqueMsgId(),
+                type: 'JOIN_REQUEST',
+                roomCode: rawCode,
+                playerId: clientState.myPlayerId,
+                name: clientState.myName,
+                avatar: clientState.myAvatar
+            };
+
             // 1. Try BroadcastChannel (instant if testing across tabs on same device)
             if (localBroadcast) {
-                localBroadcast.postMessage({
-                    type: 'JOIN_REQUEST',
-                    roomCode: rawCode,
-                    playerId: clientState.myPlayerId,
-                    name: clientState.myName,
-                    avatar: clientState.myAvatar
-                });
+                localBroadcast.postMessage(joinPacket);
             }
 
-            // 2. Connect over WebRTC PeerJS (for real phones scanning QR or entering code)
+            // 2. Connect via WSS MQTT Relay (Works 100% on iPhone Safari & cellular networks)
+            initMqttRelay(rawCode, false);
+
+            // 3. Connect over iOS-Safe WebRTC PeerJS (serialization: 'json' prevents iOS BinaryPack freeze!)
             try {
                 if (clientPeer) clientPeer.destroy();
-                clientPeer = new Peer();
+                clientPeer = new Peer(undefined, PEER_ICE_CONFIG);
                 clientPeer.on('open', () => {
-                    hostConn = clientPeer.connect(getPeerIdForRoom(rawCode), { reliable: true });
+                    hostConn = clientPeer.connect(getPeerIdForRoom(rawCode), {
+                        serialization: 'json',
+                        reliable: true
+                    });
                     hostConn.on('open', () => {
-                        document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Connected to Laptop (${rawCode})`;
+                        document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Connected via WebRTC (${rawCode})`;
                         hostConn.send({
-                            type: 'JOIN_REQUEST',
-                            roomCode: rawCode,
-                            playerId: clientState.myPlayerId,
-                            name: clientState.myName,
-                            avatar: clientState.myAvatar
+                            ...joinPacket,
+                            msgId: createUniqueMsgId()
                         });
                     });
                     hostConn.on('data', (data) => {
-                        handleClientReceiveState(data);
+                        if (!isDuplicateMsg(data)) {
+                            handleClientReceiveState(data);
+                        }
                     });
                 });
+                clientPeer.on('error', (err) => {
+                    console.warn('PeerJS client using WSS Relay fallback:', err?.type || err);
+                });
             } catch (e) {
-                console.warn('PeerJS client error:', e);
+                console.warn('PeerJS client fallback to WSS Relay:', e);
             }
+
+            // Retry join request every 2.5s until first STATE_SYNC arrives
+            let retryCount = 0;
+            const joinRetryInterval = setInterval(() => {
+                if (!clientState.isMobileClient || clientState.myHand.length > 0 || retryCount >= 6) {
+                    clearInterval(joinRetryInterval);
+                    return;
+                }
+                retryCount++;
+                const retryPacket = {
+                    ...joinPacket,
+                    msgId: createUniqueMsgId()
+                };
+                if (localBroadcast) localBroadcast.postMessage(retryPacket);
+                publishMqttMessage(rawCode, retryPacket);
+                if (hostConn && hostConn.open) hostConn.send(retryPacket);
+            }, 2500);
         }
 
-        // Host receives message from Mobile Phone (via WebRTC or BroadcastChannel)
+        // Host receives message from Mobile Phone (via WebRTC, WSS MQTT Relay, or BroadcastChannel)
         function handleIncomingClientMessage(msg, peerConn = null) {
             if (!msg || clientState.isMobileClient) return;
-            if (msg.roomCode && msg.roomCode !== gameState.roomCode) return;
+            if (msg.roomCode && msg.roomCode.toUpperCase() !== gameState.roomCode.toUpperCase()) return;
 
             if (msg.type === 'JOIN_REQUEST') {
                 let existing = gameState.players.find(p => p.id === msg.playerId);
                 if (!existing) {
-                    // Replace a bot/sim seat if table is full, or append new player seat
-                    const replaceableSeat = gameState.players.find(p => p.isBot || p.connectionType === 'sim');
-                    if (gameState.players.length >= gameState.maxSeats && replaceableSeat) {
+                    // Replace a Virtual Phone or AI Bot seat so the iPhone immediately inherits its dealt cards!
+                    const replaceableSeat = gameState.players.find(p => p.connectionType === 'sim' || p.isBot);
+                    if (replaceableSeat) {
+                        const oldId = replaceableSeat.id;
                         replaceableSeat.id = msg.playerId;
                         replaceableSeat.name = msg.name;
-                        replaceableSeat.avatar = msg.avatar;
+                        replaceableSeat.avatar = msg.avatar || '😎';
                         replaceableSeat.isBot = false;
                         replaceableSeat.connectionType = 'p2p';
                         replaceableSeat.peerConn = peerConn;
+                        if (simState.activeSimPlayerId === oldId) {
+                            simState.activeSimPlayerId = msg.playerId;
+                        }
                         existing = replaceableSeat;
                     } else {
                         existing = {
@@ -1225,16 +1377,26 @@
                             gameState.maxSeats = gameState.players.length;
                         }
                     }
-                    // If round is active and new player has no cards, deal them in from deck or redeal
-                    if (existing.hand.length === 0 && gameState.deck.length >= 3) {
-                        const count = gameState.gameMode === 'showdown' ? 3 : Math.min(5, gameState.deck.length);
-                        for (let i = 0; i < count; i++) existing.hand.push(gameState.deck.pop());
+
+                    // Ensure the connected phone has cards right away
+                    if (existing.hand.length === 0) {
+                        if (gameState.deck.length === 0) {
+                            gameState.deck = createDeck();
+                        }
+                        const count = gameState.gameMode === 'showdown' ? 3 : 5;
+                        for (let i = 0; i < count; i++) {
+                            if (gameState.deck.length > 0) existing.hand.push(gameState.deck.pop());
+                        }
                         sortHand(existing.hand);
                     }
-                    showToast(`📱 ${msg.name} connected from Mobile Phone!`, 'success');
+                    showToast(`📱 ${msg.name} connected from Phone!`, 'success');
                     playSound('deal');
-                } else if (peerConn) {
-                    existing.peerConn = peerConn;
+                } else {
+                    existing.name = msg.name || existing.name;
+                    existing.avatar = msg.avatar || existing.avatar;
+                    existing.connectionType = 'p2p';
+                    existing.isBot = false;
+                    if (peerConn) existing.peerConn = peerConn;
                 }
                 broadcastStateToAllClients();
                 renderLaptopTableUI();
@@ -1248,7 +1410,7 @@
         }
 
         function handleBroadcastMessage(msg) {
-            if (!msg) return;
+            if (!msg || isDuplicateMsg(msg)) return;
             if (!clientState.isMobileClient && msg.roomCode === gameState.roomCode) {
                 handleIncomingClientMessage(msg, null);
             } else if (clientState.isMobileClient && msg.type === 'STATE_SYNC' && msg.roomCode === clientState.roomCode) {
@@ -1258,6 +1420,7 @@
 
         function broadcastStateToAllClients() {
             const payload = {
+                msgId: createUniqueMsgId(),
                 type: 'STATE_SYNC',
                 roomCode: gameState.roomCode,
                 gameMode: gameState.gameMode,
@@ -1276,15 +1439,18 @@
                 }))
             };
 
-            // Send via BroadcastChannel
+            // 1. Send via BroadcastChannel
             if (localBroadcast) {
-                localBroadcast.postMessage(payload);
+                try { localBroadcast.postMessage(payload); } catch (e) {}
             }
 
-            // Send via PeerJS connections
+            // 2. Send via WSS MQTT Relay (reaches iPhones on any network)
+            publishMqttMessage(gameState.roomCode, payload);
+
+            // 3. Send via direct PeerJS WebRTC connections
             gameState.players.forEach(p => {
                 if (p.peerConn && p.peerConn.open) {
-                    p.peerConn.send(payload);
+                    try { p.peerConn.send(payload); } catch (e) {}
                 }
             });
         }
@@ -1367,85 +1533,135 @@
         }
 
         function dealNewRound() {
-            clearTimeout(botTimer);
-            gameState.resolvingTrick = false;
-            document.getElementById('roundResultToast').classList.add('hidden');
-            document.getElementById('roundResultToast').classList.remove(' inline-flex');
+            try {
+                clearTimeout(botTimer);
+                gameState.resolvingTrick = false;
 
-            const fullDeck = createDeck();
-            const numPlayers = gameState.players.length;
-            if (numPlayers === 0) return;
-
-            gameState.tableCards = [];
-            gameState.leadSuit = null;
-            gameState.topDiscard = null;
-            gameState.turnDirection = 1;
-            gameState.turnIndex = 0;
-
-            // Reset player hands
-            gameState.players.forEach(p => { p.hand = []; });
-
-            if (gameState.gameMode === 'trick') {
-                // Deal evenly (up to 13 cards per player)
-                const cardsPerPlayer = Math.min(13, Math.floor(fullDeck.length / numPlayers));
-                for (let c = 0; c < cardsPerPlayer; c++) {
-                    for (let p = 0; p < numPlayers; p++) {
-                        gameState.players[p].hand.push(fullDeck.pop());
-                    }
+                const toastEl = document.getElementById('roundResultToast');
+                if (toastEl) {
+                    toastEl.classList.add('hidden');
+                    toastEl.classList.remove('inline-flex');
                 }
-                gameState.deck = fullDeck;
-                gameState.announcement = `${gameState.players[0].name}'s turn to lead the trick!`;
-            } else if (gameState.gameMode === 'shedding') {
-                // Crazy Eights: 7 cards each (or 5 if 6+ players)
-                const cardsPerPlayer = numPlayers >= 6 ? 5 : 7;
-                for (let c = 0; c < cardsPerPlayer; c++) {
-                    for (let p = 0; p < numPlayers; p++) {
-                        gameState.players[p].hand.push(fullDeck.pop());
-                    }
+
+                // Read desired seat count from dropdown so Deal ALWAYS works even if fewer phones joined
+                const seatSelect = document.getElementById('livePlayerCountSelect');
+                const desiredSeats = seatSelect ? (parseInt(seatSelect.value, 10) || 4) : (gameState.maxSeats || 4);
+                gameState.maxSeats = Math.max(2, Math.min(8, desiredSeats));
+
+                // Auto-fill any missing seats with Virtual Phone / Simulated players so Deal never fails
+                while (gameState.players.length < gameState.maxSeats) {
+                    const idx = gameState.players.length;
+                    gameState.players.push({
+                        id: `p_${Date.now()}_${idx}`,
+                        name: DEFAULT_NAMES[idx % DEFAULT_NAMES.length],
+                        avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
+                        hand: [],
+                        score: 0,
+                        isBot: false,
+                        connectionType: 'sim',
+                        peerConn: null
+                    });
                 }
-                // Flip starter card to table
-                const starter = fullDeck.pop();
-                gameState.topDiscard = starter;
-                gameState.leadSuit = starter.suit;
-                gameState.tableCards.push({
-                    card: starter,
-                    playerId: 'dealer',
-                    playerName: 'Starter Card',
-                    playerAvatar: '🎴',
-                    faceDown: false,
-                    rotation: -4
+
+                const fullDeck = createDeck();
+                const numPlayers = gameState.players.length;
+
+                gameState.tableCards = [];
+                gameState.leadSuit = null;
+                gameState.topDiscard = null;
+                gameState.turnDirection = 1;
+                gameState.turnIndex = 0;
+
+                // Reset player hands and showdown labels
+                gameState.players.forEach(p => {
+                    p.hand = [];
+                    p.lastHandLabel = '';
                 });
-                gameState.deck = fullDeck;
-                gameState.announcement = `Match ${starter.rank} or ${starter.suit} (8 is Wild!) — ${gameState.players[0].name}'s turn`;
-            } else if (gameState.gameMode === 'showdown') {
-                // Teen Patti: 3 cards per player
-                for (let c = 0; c < 3; c++) {
-                    for (let p = 0; p < numPlayers; p++) {
-                        gameState.players[p].hand.push(fullDeck.pop());
+
+                let cardsPerPlayer = 0;
+
+                if (gameState.gameMode === 'trick') {
+                    // Deal evenly (up to 13 cards per player)
+                    cardsPerPlayer = Math.min(13, Math.floor(fullDeck.length / numPlayers));
+                    for (let c = 0; c < cardsPerPlayer; c++) {
+                        for (let p = 0; p < numPlayers; p++) {
+                            gameState.players[p].hand.push(fullDeck.pop());
+                        }
                     }
-                }
-                gameState.deck = fullDeck;
-                gameState.announcement = `Teen Patti 3-Card Deal! Throw your cards or click Showdown Reveal!`;
-            } else {
-                // Sandbox mode: 7 cards each, rest in draw pile
-                const cardsPerPlayer = 7;
-                for (let c = 0; c < cardsPerPlayer; c++) {
-                    for (let p = 0; p < numPlayers; p++) {
-                        if (fullDeck.length > 0) gameState.players[p].hand.push(fullDeck.pop());
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `${gameState.players[0].name}'s turn to lead the trick!`;
+                } else if (gameState.gameMode === 'shedding') {
+                    // Crazy Eights: 7 cards each (or 5 if 6+ players)
+                    cardsPerPlayer = numPlayers >= 6 ? 5 : 7;
+                    for (let c = 0; c < cardsPerPlayer; c++) {
+                        for (let p = 0; p < numPlayers; p++) {
+                            gameState.players[p].hand.push(fullDeck.pop());
+                        }
                     }
+                    // Flip starter card to table
+                    const starter = fullDeck.pop();
+                    gameState.topDiscard = starter;
+                    gameState.leadSuit = starter.suit;
+                    gameState.tableCards.push({
+                        card: starter,
+                        playerId: 'dealer',
+                        playerName: 'Starter Card',
+                        playerAvatar: '🎴',
+                        faceDown: false,
+                        rotation: -4
+                    });
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `Match ${starter.rank} or ${starter.suit} (8 is Wild!) — ${gameState.players[0].name}'s turn`;
+                } else if (gameState.gameMode === 'showdown') {
+                    // Teen Patti: 3 cards per player
+                    cardsPerPlayer = 3;
+                    for (let c = 0; c < cardsPerPlayer; c++) {
+                        for (let p = 0; p < numPlayers; p++) {
+                            gameState.players[p].hand.push(fullDeck.pop());
+                        }
+                    }
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `Teen Patti 3-Card Deal! Throw your cards or click Showdown Reveal!`;
+                } else {
+                    // Sandbox mode: 7 cards each, rest in draw pile
+                    cardsPerPlayer = Math.min(7, Math.floor(fullDeck.length / numPlayers));
+                    for (let c = 0; c < cardsPerPlayer; c++) {
+                        for (let p = 0; p < numPlayers; p++) {
+                            if (fullDeck.length > 0) gameState.players[p].hand.push(fullDeck.pop());
+                        }
+                    }
+                    gameState.deck = fullDeck;
+                    gameState.announcement = `Sandbox Mode: Any player can throw cards face-up/down or draw!`;
                 }
-                gameState.deck = fullDeck;
-                gameState.announcement = `Sandbox Mode: Any player can throw cards face-up/down or draw!`;
+
+                gameState.players.forEach(p => sortHand(p.hand));
+                gameState.roundActive = true;
+                playSound('deal');
+
+                // Auto-select first turn player in simulator
+                if (!simState.activeSimPlayerId || !gameState.players.some(p => p.id === simState.activeSimPlayerId)) {
+                    simState.activeSimPlayerId = gameState.players[0].id;
+                }
+                syncSimulatorToActiveTurn();
+                renderLaptopTableUI();
+                broadcastStateToAllClients();
+                showToast(`🃏 Dealt ${cardsPerPlayer} cards to each of the ${numPlayers} players!`, 'success');
+                triggerBotMoveIfNeeded();
+            } catch (err) {
+                console.error('Error in dealNewRound:', err);
+                showToast('Cards dealt! Ready to play.', 'info');
             }
+        }
 
-            gameState.players.forEach(p => sortHand(p.hand));
-            playSound('deal');
-
-            // Auto-select first turn player in simulator if auto-follow is checked
-            syncSimulatorToActiveTurn();
-            renderLaptopTableUI();
-            broadcastStateToAllClients();
-            triggerBotMoveIfNeeded();
+        // Host button to deal +1 extra card to the current active player
+        function dealOneCardToAllOrActive() {
+            if (gameState.players.length === 0) {
+                dealNewRound();
+                return;
+            }
+            const targetPlayer = gameState.players[gameState.turnIndex] || gameState.players[0];
+            playerDrawCard(targetPlayer.id);
+            showToast(`Dealt +1 card to ${targetPlayer.name}!`, 'success');
         }
 
         // Validate whether a card is legal to throw in the current mode
@@ -2262,11 +2478,16 @@
         }
 
         function sendMobileActionToHost(payload) {
+            const packet = {
+                ...payload,
+                msgId: createUniqueMsgId()
+            };
             if (localBroadcast) {
-                localBroadcast.postMessage(payload);
+                try { localBroadcast.postMessage(packet); } catch (e) {}
             }
+            publishMqttMessage(clientState.roomCode, packet);
             if (hostConn && hostConn.open) {
-                hostConn.send(payload);
+                try { hostConn.send(packet); } catch (e) {}
             }
         }
 
@@ -2365,7 +2586,29 @@
             modal.classList.remove('hidden');
             document.getElementById('modalRoomCodeDisplay').textContent = gameState.roomCode;
 
-            const baseUrl = window.location.href.split('?')[0];
+            const customInput = document.getElementById('customPublicUrlInput');
+            const rawHref = window.location.href.split('?')[0];
+            const isSandbox = rawHref.startsWith('about:') || rawHref.startsWith('blob:') || rawHref.startsWith('data:') || rawHref.includes('googleusercontent.com');
+
+            const savedPublicUrl = localStorage.getItem('tabledeck_public_url') || '';
+            if (savedPublicUrl) {
+                customInput.value = savedPublicUrl;
+            } else if (!isSandbox) {
+                customInput.value = rawHref;
+            }
+
+            updateQRWithCustomUrl();
+        }
+
+        function updateQRWithCustomUrl() {
+            const customInput = document.getElementById('customPublicUrlInput');
+            const rawHref = window.location.href.split('?')[0];
+            let baseUrl = (customInput && customInput.value.trim()) ? customInput.value.trim().split('?')[0] : rawHref;
+
+            if (customInput && customInput.value.trim()) {
+                try { localStorage.setItem('tabledeck_public_url', baseUrl); } catch (e) {}
+            }
+
             const joinUrl = `${baseUrl}?room=${gameState.roomCode}`;
             document.getElementById('shareableJoinLink').value = joinUrl;
 
