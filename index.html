@@ -299,10 +299,10 @@
                         <div class="space-y-4">
                             <!-- Game Mode Selector -->
                             <div>
-                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Select Card Game Mode (6 Modes)</label>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Select Card Game Mode</label>
                                 <select id="hostGameMode" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
-                                    <option value="getaway">🏃 Getaway (Bhabhi / Thulla — Follow Suit or Pickup Penalty!)</option>
-                                    <option value="bridge">🌉 Bridge (Contract & Partnership Teams • Trump / No-Trump)</option>
+                                    <option value="getaway">🏃 Getaway (Bhabhi / Thulla - Shed All Cards, Pickup Penalty)</option>
+                                    <option value="bridge">🌉 Bridge (Partnership Contract - Trump / No-Trump Tricks)</option>
                                     <option value="trick">♠️ Trick-Taking Classic (Callbreak / Spades - Follow Suit)</option>
                                     <option value="shedding">🔥 Crazy Eights / UNO-Style Shedding (Wild 8s, +2, Skip, Reverse)</option>
                                     <option value="showdown">👑 Teen Patti / 3-Card High Showdown (Trail, Sequence, Flush)</option>
@@ -406,7 +406,7 @@
                         <span class="text-[11px] text-slate-400 font-medium">Mode:</span>
                         <select id="liveGameModeSelect" onchange="changeGameModeLive(this.value)" class="bg-transparent text-xs font-bold text-emerald-400 focus:outline-none cursor-pointer">
                             <option value="getaway" class="bg-slate-900 text-white">🏃 Getaway (Bhabhi / Thulla)</option>
-                            <option value="bridge" class="bg-slate-900 text-white">🌉 Bridge (Partnership / Trump)</option>
+                            <option value="bridge" class="bg-slate-900 text-white">🌉 Bridge (Partnership)</option>
                             <option value="trick" class="bg-slate-900 text-white">♠️ Trick-Taking Classic</option>
                             <option value="shedding" class="bg-slate-900 text-white">🔥 Crazy Eights / UNO-Style</option>
                             <option value="showdown" class="bg-slate-900 text-white">👑 Teen Patti 3-Card Showdown</option>
@@ -415,7 +415,7 @@
                     </div>
 
                     <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
-                        <span class="text-[11px] text-slate-400 font-medium">Seats:</span>
+                        <span class="text-[11px] text-slate-400 font-medium">Players:</span>
                         <select id="livePlayerCountSelect" onchange="changeSeatCountLive(this.value)" class="bg-transparent text-xs font-bold text-amber-400 focus:outline-none cursor-pointer">
                             <option value="2" class="bg-slate-900 text-white">2 Seats</option>
                             <option value="3" class="bg-slate-900 text-white">3 Seats</option>
@@ -428,12 +428,22 @@
                     </div>
 
                     <button onclick="addSimulatedPhoneSeat()" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 flex items-center gap-1 transition" title="Add Virtual Phone or AI Player">
-                        <i class="fa-solid fa-user-plus text-emerald-400"></i> +Seat
+                        <i class="fa-solid fa-user-plus text-emerald-400"></i> +Phone/Bot
                     </button>
 
-                    <button onclick="openPlayersModal()" class="px-2.5 py-1 rounded-xl bg-rose-950/60 hover:bg-rose-900/70 text-xs font-semibold text-rose-200 border border-rose-500/40 flex items-center gap-1 transition" title="Remove or Manage Seated Players">
-                        <i class="fa-solid fa-user-minus text-rose-400"></i> Manage / Remove Players
+                    <button onclick="openPlayersModal()" class="px-2.5 py-1 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-xs font-semibold text-rose-300 border border-rose-500/30 flex items-center gap-1 transition" title="Manage or Remove Players">
+                        <i class="fa-solid fa-user-xmark"></i> Remove Player
                     </button>
+
+                    <label class="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300 cursor-pointer" title="Automatically play turns for AI/Virtual seats so real phones never get stuck waiting">
+                        <input id="chkAutoPlayBots" type="checkbox" checked onchange="toggleAutoPlayBots(this.checked)" class="accent-emerald-500 rounded">
+                        <span>🤖 Auto-Bots</span>
+                    </label>
+
+                    <label class="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300 cursor-pointer" title="Uncheck to allow any player to throw any card at any time">
+                        <input id="chkStrictRules" type="checkbox" checked onchange="toggleStrictRules(this.checked)" class="accent-amber-500 rounded">
+                        <span>📏 Strict Rules</span>
+                    </label>
                 </div>
 
                 <!-- Center Status Banner -->
@@ -442,16 +452,10 @@
                     <span id="tableAnnouncementText">Waiting for players to throw cards...</span>
                 </div>
 
-                <!-- Right: Deal / +1 Card / Clean Score / Show Winner / Clear Buttons -->
+                <!-- Right: Deal / +1 Card / Collect / Clean Score / Winner / Showdown Buttons -->
                 <div class="flex flex-wrap items-center gap-1.5">
                     <button id="btnShowdownReveal" onclick="evaluateShowdownNow()" class="hidden px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow">
                         <i class="fa-solid fa-eye"></i> Showdown Reveal
-                    </button>
-                    <button onclick="openWinnerModal()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-extrabold text-xs shadow-lg transition flex items-center gap-1 active:scale-95 cursor-pointer" title="Display Winner & Full Leaderboard Podium">
-                        <i class="fa-solid fa-trophy"></i> Show Winner
-                    </button>
-                    <button onclick="cleanAllScores()" class="px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer" title="Reset all player scores and trick counters to 0">
-                        <i class="fa-solid fa-eraser text-rose-400"></i> Clean Score
                     </button>
                     <button onclick="dealOneCardToAllOrActive()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs font-bold transition" title="Deal +1 extra card to current turn player">
                         <i class="fa-solid fa-plus text-indigo-400 mr-0.5"></i> +1 Card
@@ -459,9 +463,46 @@
                     <button id="btnCollectTablePile" onclick="manualCollectTableCards()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition" title="Clear or award cards currently on table">
                         <i class="fa-solid fa-broom text-amber-400 mr-1"></i> Clear Table
                     </button>
+                    <button onclick="cleanAllScores()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/80 text-xs font-semibold text-rose-300 border border-rose-500/30 transition" title="Reset all player scores and tricks to 0">
+                        <i class="fa-solid fa-eraser mr-1"></i> Clean Score
+                    </button>
+                    <button onclick="openWinnerModal()" class="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-xs font-bold text-amber-300 border border-amber-500/40 transition" title="Display Winner Podium & Leaderboard">
+                        <i class="fa-solid fa-trophy mr-1"></i> Show Winner
+                    </button>
                     <button id="btnTopDealCards" onclick="dealNewRound()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-950 transition flex items-center gap-1.5 active:scale-95 cursor-pointer">
                         <i class="fa-solid fa-shuffle"></i> Deal New Hand
                     </button>
+                </div>
+            </div>
+
+            <!-- BRIDGE CONTRACT & PARTNERSHIP BAR (Shown in Bridge Mode) -->
+            <div id="bridgeContractBar" class="hidden mt-1.5 bg-indigo-950/70 border border-indigo-500/40 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs z-20">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-bold text-indigo-300"><i class="fa-solid fa-bridge mr-1"></i>Bridge Contract:</span>
+                    <select id="bridgeDeclarerTeam" onchange="updateBridgeContract()" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-white font-semibold">
+                        <option value="NS">Declarer: Team N/S (Seats 1,3)</option>
+                        <option value="EW">Declarer: Team E/W (Seats 2,4)</option>
+                    </select>
+                    <select id="bridgeTargetTricks" onchange="updateBridgeContract()" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-amber-300 font-bold">
+                        <option value="7" selected>1 Level (7 Tricks)</option>
+                        <option value="8">2 Level (8 Tricks)</option>
+                        <option value="9">3 Level (9 Tricks)</option>
+                        <option value="10">4 Level (10 Tricks)</option>
+                        <option value="11">5 Level (11 Tricks)</option>
+                        <option value="12">6 Small Slam (12 Tricks)</option>
+                        <option value="13">7 Grand Slam (13 Tricks)</option>
+                    </select>
+                    <select id="bridgeTrumpSelect" onchange="updateBridgeContract()" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-emerald-300 font-bold">
+                        <option value="♠">Trump: ♠ Spades</option>
+                        <option value="♥">Trump: ♥ Hearts</option>
+                        <option value="♦">Trump: ♦ Diamonds</option>
+                        <option value="♣">Trump: ♣ Clubs</option>
+                        <option value="NT">No-Trump (NT)</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-3 font-bold">
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Team N/S Tricks: <strong id="bridgeNSTricks">0</strong></span>
+                    <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Team E/W Tricks: <strong id="bridgeEWTricks">0</strong></span>
                 </div>
             </div>
 
@@ -741,31 +782,36 @@
 
         <!-- Player's Private Hand Area -->
         <div class="flex-1 flex flex-col justify-center my-2 bg-slate-900/50 border border-slate-800/80 rounded-3xl p-4 relative overflow-hidden">
-            <div class="flex items-center justify-between text-xs text-slate-400 mb-3">
+            <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
                 <span><i class="fa-solid fa-hand-holding-heart text-emerald-400 mr-1"></i>Your Private Hand</span>
-                <span id="mobHandCountBadge" class="font-bold text-white">0 Cards</span>
+                <div class="flex items-center gap-2">
+                    <span id="mobLastThrownBadge" class="hidden px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold">
+                        Last Thrown: --
+                    </span>
+                    <span id="mobHandCountBadge" class="font-bold text-white">0 Cards</span>
+                </div>
             </div>
 
             <div id="mobHandContainer" class="flex flex-wrap items-center justify-center gap-2 my-auto py-4">
                 <!-- Mobile player's private cards rendered here -->
             </div>
 
-            <p id="mobCardSelectionHint" class="text-center text-[11px] text-slate-400 mt-2">
-                Tap a card to select it, then tap <strong>Throw Card to Table</strong>
+            <p id="mobCardSelectionHint" class="text-center text-[11px] text-slate-300 mt-2 font-medium">
+                Tap any card once to raise it, then tap <strong>🚀 THROW SELECTED CARD</strong> (or tap the raised card again!)
             </p>
         </div>
 
         <!-- Bottom Action Controls (Throw, Draw, Reactions) -->
         <div class="space-y-2.5">
             <div class="flex items-center gap-2">
-                <button id="btnMobThrowCard" onclick="throwSelectedCardFromPhone(false)" class="flex-1 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-base shadow-xl shadow-emerald-950 flex items-center justify-center gap-2 transition active:scale-95">
-                    <i class="fa-solid fa-paper-plane"></i> Throw Card to Laptop
+                <button id="btnMobThrowCard" type="button" onclick="window.mobileThrowCard(false)" class="flex-1 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-base shadow-xl shadow-emerald-950 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-paper-plane"></i> 🚀 THROW SELECTED CARD
                 </button>
-                <button id="btnMobDrawCard" onclick="requestMobileDrawCard()" class="hidden px-4 py-4 rounded-2xl bg-amber-500 text-slate-950 font-extrabold text-sm shadow-lg">
+                <button id="btnMobDrawCard" type="button" onclick="requestMobileDrawCard()" class="hidden px-4 py-4 rounded-2xl bg-amber-500 text-slate-950 font-extrabold text-sm shadow-lg active:scale-95">
                     +Draw
                 </button>
-                <button id="btnMobThrowBlind" onclick="throwSelectedCardFromPhone(false, true)" class="hidden px-3.5 py-4 rounded-2xl bg-slate-800 text-slate-200 font-bold text-xs border border-slate-700">
-                    Face-Down
+                <button id="btnMobThrowBlind" type="button" onclick="window.mobileThrowCard(true)" class="hidden px-3.5 py-4 rounded-2xl bg-slate-800 text-slate-200 font-bold text-xs border border-slate-700 active:scale-95">
+                    🕵️ Face-Down
                 </button>
             </div>
 
@@ -885,73 +931,53 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
             <div class="flex items-center gap-3 mb-4">
-                <div class="w-11 h-11 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl text-rose-400">
+                <div class="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-lg">
                     <i class="fa-solid fa-users-gear"></i>
                 </div>
                 <div>
-                    <h3 class="font-display text-xl font-bold text-white">Manage Table Players</h3>
-                    <p class="text-xs text-slate-400">Remove any disconnected phone, bot, or virtual player seat</p>
+                    <h3 class="font-display text-lg font-bold text-white">Manage / Remove Players</h3>
+                    <p class="text-xs text-slate-400">Remove any disconnected phone or bot seat from the laptop table</p>
                 </div>
             </div>
 
-            <div id="playersModalList" class="space-y-2 max-h-72 overflow-y-auto my-3 pr-1">
-                <!-- Populated dynamically -->
-            </div>
+            <div id="playersModalList" class="space-y-2 max-h-64 overflow-y-auto mb-4"></div>
 
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800">
-                <button onclick="removeAllVirtualAndBotPlayers()" class="px-3 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition">
-                    <i class="fa-solid fa-trash-can mr-1"></i> Remove All Bots / Sim Seats
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                <button onclick="removeAllVirtualBots()" class="px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold">
+                    Remove All Bots/Virtual
                 </button>
-                <div class="flex items-center gap-2">
-                    <button onclick="addSimulatedPhoneSeat(); renderPlayersModalList();" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
-                        + Add Seat
-                    </button>
-                    <button onclick="closePlayersModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
-                        Done
-                    </button>
-                </div>
+                <button onclick="closePlayersModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold">
+                    Done
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- ================= MODAL 4: WINNER CELEBRATION & LEADERBOARD PODIUM MODAL ================= -->
+    <!-- ================= MODAL 4: WINNER PODIUM & LEADERBOARD MODAL ================= -->
     <div id="winnerModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-2 border-amber-500/60 rounded-3xl max-w-lg w-full p-6 shadow-2xl text-center relative overflow-hidden">
+        <div class="bg-slate-900 border-2 border-amber-500/50 rounded-3xl max-w-lg w-full p-6 shadow-2xl text-center relative">
             <button onclick="closeWinnerModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
                 <i class="fa-solid fa-xmark"></i>
             </button>
 
-            <!-- Trophy Icon -->
-            <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center mx-auto mb-3 text-3xl shadow-xl shadow-amber-500/30 animate-bounce">
-                <i class="fa-solid fa-trophy"></i>
+            <div class="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto mb-3 text-3xl shadow-lg">
+                🏆
             </div>
+            <h3 id="winnerModalTitle" class="font-display text-2xl font-extrabold text-white">Table Standings & Winner</h3>
+            <p id="winnerModalSubtitle" class="text-xs text-amber-300 font-semibold mt-1 mb-5">Current Match Leaderboard</p>
 
-            <span id="winnerModalModeBadge" class="px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold uppercase tracking-wider">
-                Championship Standings
-            </span>
+            <!-- Top 3 Podium -->
+            <div id="winnerPodiumGrid" class="grid grid-cols-3 gap-2.5 items-end mb-5"></div>
 
-            <h2 id="winnerModalTitle" class="font-display text-2xl sm:text-3xl font-extrabold text-white mt-2">
-                🏆 Winner: Player 1!
-            </h2>
-            <p id="winnerModalSubtitle" class="text-xs sm:text-sm text-emerald-300 font-semibold mt-1 mb-4">
-                Leading the table with the highest score!
-            </p>
+            <!-- Full Standings List -->
+            <div id="winnerLeaderboardList" class="space-y-1.5 text-left max-h-48 overflow-y-auto mb-5 bg-slate-950 p-3 rounded-2xl border border-slate-800"></div>
 
-            <!-- Leaderboard Standings List -->
-            <div id="winnerLeaderboardList" class="space-y-2 text-left max-h-64 overflow-y-auto bg-slate-950/90 p-3 rounded-2xl border border-slate-800 mb-5">
-                <!-- Populated dynamically -->
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="flex flex-wrap items-center justify-center gap-2.5">
-                <button onclick="closeWinnerModal(); dealNewRound();" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs sm:text-sm shadow-lg flex items-center justify-center gap-1.5 transition">
-                    <i class="fa-solid fa-shuffle"></i> Deal Next Hand
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <button onclick="cleanAllScores(); closeWinnerModal();" class="px-4 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold">
+                    <i class="fa-solid fa-eraser mr-1"></i> Clean Score
                 </button>
-                <button onclick="cleanAllScores(); openWinnerModal();" class="py-3 px-4 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition">
-                    <i class="fa-solid fa-eraser"></i> Clean Score
-                </button>
-                <button onclick="closeWinnerModal()" class="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs sm:text-sm">
-                    Close
+                <button onclick="closeWinnerModal(); dealNewRound();" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg">
+                    <i class="fa-solid fa-shuffle mr-1"></i> Deal Next Hand
                 </button>
             </div>
         </div>
@@ -1075,36 +1101,32 @@
             roomCode: '4829',
             gameMode: 'getaway', // 'getaway' | 'bridge' | 'trick' | 'shedding' | 'showdown' | 'sandbox'
             maxSeats: 4,
-            players: [],         // { id, name, avatar, hand: [], score: 0, tricksWon: 0, escapedRank: null, isBot: false, connectionType: 'sim'|'p2p'|'bot', peerConn: null, lastHandLabel: '' }
+            players: [],         // Array of { id, name, avatar, hand: [], score: 0, isBot: false, connectionType: 'sim'|'p2p'|'bot', peerConn: null, gotAwayRank: 0, lastHandLabel: '' }
             deck: [],
-            tableCards: [],      // { card, playerId, playerName, playerAvatar, faceDown, rotation }
+            burnPileCount: 0,
+            tableCards: [],      // Cards currently thrown on the central table: { card, playerId, playerName, playerAvatar, faceDown, rotation }
             turnIndex: 0,
-            turnDirection: 1,
+            turnDirection: 1,    // 1 = clockwise, -1 = counter-clockwise
             leadSuit: null,
-            trumpSuit: '♠',      // '♠' | '♥' | '♦' | '♣' | 'NT'
+            trumpSuit: '♠',
             topDiscard: null,
-            announcement: 'Welcome to TableDeck!',
+            announcement: 'Welcome to TableDeck! Deal a hand or throw a card.',
             resolvingTrick: false,
             roundActive: false,
-            // Getaway (Bhabhi / Thulla) specific tracking
-            burnPileCount: 0,
-            escapedPlayersOrder: [], // Array of player IDs in order of escaping
-            firstTrickAceSpades: false,
-            // Bridge Partnership specific tracking
-            bridgeDeclarer: 'NS',    // 'NS' (Odd seats: 1,3,5,7) or 'EW' (Even seats: 2,4,6,8)
-            bridgeTargetTricks: 7,
-            bridgeNSTricks: 0,
-            bridgeEWTricks: 0
+            autoPlayBots: true,
+            strictRules: true,
+            getawayFinishOrder: 0,
+            firstTrickOfRound: true,
+            bridge: {
+                declarerTeam: 'NS',
+                targetTricks: 7,
+                trumpSuit: '♠',
+                nsTricks: 0,
+                ewTricks: 0
+            }
         };
 
-        // Split-Screen Virtual Phone Simulator State
-        let simState = {
-            activeSimPlayerId: null,
-            selectedCardId: null,
-            pendingWildCard: null
-        };
-
-        // Dedicated Mobile Phone Controller Client State
+        // Mobile Client Local State
         let clientState = {
             isMobileClient: false,
             roomCode: '',
@@ -1115,17 +1137,30 @@
             myScore: 0,
             selectedCardId: null,
             pendingWildCard: null,
-            connectedOnce: false
+            lastHandSignature: '',
+            lastThrownCardText: '',
+            turnPlayerId: null,
+            turnPlayerName: '',
+            leadSuit: null,
+            trumpSuit: '♠',
+            strictRules: true
         };
 
-        // Networking Objects (PeerJS + Multi-Broker WSS MQTT Relay + BroadcastChannel)
+        // Split-Screen Simulator State
+        let simState = {
+            activeSimPlayerId: null,
+            selectedCardId: null,
+            pendingWildCard: null
+        };
+
+        // Multi-Transport Networking Objects (PeerJS + 3 Parallel WSS MQTT Brokers + BroadcastChannel)
         let hostPeer = null;
         let clientPeer = null;
         let hostConn = null;
         let mqttClients = [];
         let localBroadcast = null;
         let botTimer = null;
-        let joinRetryTimer = null;
+        let pendingMobileThrowRetryTimer = null;
         let processedMsgIds = new Set();
 
         const MQTT_BROKERS = [
@@ -1147,7 +1182,9 @@
         try {
             localBroadcast = new BroadcastChannel('tabledeck_p2p_channel');
             localBroadcast.onmessage = (event) => handleBroadcastMessage(event.data);
-        } catch (e) {}
+        } catch (e) {
+            console.warn('BroadcastChannel not supported in this context.');
+        }
 
         function createUniqueMsgId() {
             return 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
@@ -1165,7 +1202,7 @@
         }
 
         /*************************************************************************
-         * 3. DECK GENERATION, SHUFFLING & ROOM PIN GENERATOR
+         * 3. DECK GENERATION, SHUFFLING & DEALING
          *************************************************************************/
         function createDeck() {
             const deck = [];
@@ -1199,7 +1236,7 @@
         }
 
         function generateRoomCode() {
-            // 4-Digit Numeric PIN for zero autocorrect/case issues on iPhone Safari
+            // 4-digit PIN for zero autocorrect friction on iPhone & Android
             return String(Math.floor(1000 + Math.random() * 9000));
         }
 
@@ -1211,7 +1248,7 @@
             const urlRoom = params.get('room');
             if (urlRoom) {
                 document.getElementById('joinRoomCodeInput').value = urlRoom.trim().toUpperCase();
-                showToast(`Room PIN ${urlRoom.toUpperCase()} loaded! Enter your name and tap Connect.`, 'info');
+                showToast(`Room Code ${urlRoom.toUpperCase()} loaded! Enter your name & tap Connect.`, 'info');
             }
         });
 
@@ -1225,7 +1262,7 @@
 
         function returnToLanding() {
             clearTimeout(botTimer);
-            clearInterval(joinRetryTimer);
+            clearInterval(pendingMobileThrowRetryTimer);
             document.getElementById('landingView').classList.remove('hidden');
             document.getElementById('laptopTableView').classList.add('hidden');
             document.getElementById('mobileControllerView').classList.add('hidden');
@@ -1259,18 +1296,17 @@
 
             if (fillMode === 'sim' || fillMode === 'bots') {
                 for (let i = 0; i < maxSeats; i++) {
-                    const isBotSeat = (fillMode === 'bots') ? true : (i >= 2);
+                    const isBotSeat = (fillMode === 'bots') ? true : (i >= 1);
                     gameState.players.push({
                         id: `p_${i + 1}`,
                         name: DEFAULT_NAMES[i % DEFAULT_NAMES.length],
                         avatar: DEFAULT_AVATARS[i % DEFAULT_AVATARS.length],
                         hand: [],
                         score: 0,
-                        tricksWon: 0,
-                        escapedRank: null,
                         isBot: isBotSeat,
                         connectionType: isBotSeat ? 'bot' : 'sim',
                         peerConn: null,
+                        gotAwayRank: 0,
                         lastHandLabel: ''
                     });
                 }
@@ -1281,11 +1317,10 @@
                     avatar: '😎',
                     hand: [],
                     score: 0,
-                    tricksWon: 0,
-                    escapedRank: null,
                     isBot: false,
                     connectionType: 'sim',
                     peerConn: null,
+                    gotAwayRank: 0,
                     lastHandLabel: ''
                 });
             }
@@ -1314,10 +1349,10 @@
         }
 
         /*************************************************************************
-         * 5. MULTI-BROKER WSS RELAY + iOS-SAFE WEBRTC NETWORKING
+         * 5. MULTI-BROKER NETWORKING (iOS-SAFE WEBRTC + 3 WSS MQTT RELAYS)
          *************************************************************************/
         function getPeerIdForRoom(code) {
-            return `tabledeck-v3-pin-${String(code).trim().toUpperCase()}`;
+            return `tabledeck-v3-room-${String(code).trim().toUpperCase()}`;
         }
 
         function getMqttTopicForRoom(code) {
@@ -1339,7 +1374,7 @@
             try {
                 hostPeer = new Peer(getPeerIdForRoom(roomCode), PEER_ICE_CONFIG);
                 hostPeer.on('open', () => {
-                    updateNavNetworkBadge(`PIN ${roomCode} • Multi-Relay Ready`, true);
+                    updateNavNetworkBadge(`Room ${roomCode} Ready`, true);
                 });
                 hostPeer.on('connection', (conn) => {
                     conn.on('open', () => {
@@ -1352,21 +1387,16 @@
                     });
                 });
                 hostPeer.on('error', (err) => {
-                    if (err && err.type === 'unavailable-id') {
-                        gameState.roomCode = generateRoomCode();
-                        document.getElementById('navRoomCode').textContent = gameState.roomCode;
-                        document.getElementById('bottomBarRoomCode').textContent = gameState.roomCode;
-                        const arenaCodeEl = document.getElementById('arenaRoomCodeText');
-                        if (arenaCodeEl) arenaCodeEl.textContent = gameState.roomCode;
-                        initHostNetworking(gameState.roomCode);
-                    }
+                    console.warn('PeerJS Host Notice:', err?.type || err);
                 });
-            } catch (e) {}
+            } catch (e) {
+                console.warn('PeerJS Host fallback to WSS Relays:', e);
+            }
 
-            initMultiBrokerMqtt(roomCode, true);
+            initMqttRelays(roomCode, true);
         }
 
-        function initMultiBrokerMqtt(roomCode, isHost) {
+        function initMqttRelays(roomCode, isHost) {
             if (typeof mqtt === 'undefined') return;
             mqttClients.forEach(c => {
                 try { c.end(true); } catch (e) {}
@@ -1374,21 +1404,20 @@
             mqttClients = [];
 
             const topic = getMqttTopicForRoom(roomCode);
-
-            MQTT_BROKERS.forEach((brokerUrl) => {
+            MQTT_BROKERS.forEach((brokerUrl, idx) => {
                 try {
                     const client = mqtt.connect(brokerUrl, {
-                        clientId: 'td3_' + (isHost ? 'h_' : 'm_') + Math.random().toString(16).substring(2, 9),
+                        clientId: `td_${isHost ? 'h' : 'm'}_${idx}_${Math.random().toString(16).substring(2, 9)}`,
                         clean: true,
                         connectTimeout: 4500,
-                        reconnectPeriod: 2500
+                        reconnectPeriod: 2000
                     });
 
                     client.on('connect', () => {
                         client.subscribe(topic, { qos: 0 }, (err) => {
                             if (!err) {
                                 if (isHost) {
-                                    updateNavNetworkBadge(`iPhone Relay Ready (PIN: ${roomCode})`, true);
+                                    updateNavNetworkBadge(`Multi-Relay Ready (${roomCode})`, true);
                                 } else if (clientState.isMobileClient) {
                                     publishMqttMessage(roomCode, {
                                         msgId: createUniqueMsgId(),
@@ -1410,10 +1439,8 @@
                             if (isHost && !clientState.isMobileClient) {
                                 handleIncomingClientMessage(data, null);
                             } else if (!isHost && clientState.isMobileClient) {
-                                if (data.type === 'STATE_SYNC') {
+                                if (data.type === 'STATE_SYNC' || data.type === 'PLAY_ACK' || data.type === 'PLAYER_KICKED') {
                                     handleClientReceiveState(data);
-                                } else if (data.type === 'PLAYER_KICKED' && data.playerId === clientState.myPlayerId) {
-                                    handleClientKicked();
                                 }
                             }
                         } catch (err) {}
@@ -1429,26 +1456,24 @@
             const topic = getMqttTopicForRoom(roomCode);
             mqttClients.forEach(client => {
                 if (client && client.connected) {
-                    try {
-                        client.publish(topic, str, { qos: 0 });
-                    } catch (e) {}
+                    try { client.publish(topic, str, { qos: 0 }); } catch (e) {}
                 }
             });
         }
 
         function startMobileClient() {
             const rawCode = document.getElementById('joinRoomCodeInput').value.trim().toUpperCase();
-            const playerName = document.getElementById('joinPlayerNameInput').value.trim() || 'iPhone Player';
+            const playerName = document.getElementById('joinPlayerNameInput').value.trim() || 'Phone Player';
 
             if (!rawCode || rawCode.length < 2) {
-                showToast('Please enter the 4-Digit Room PIN shown on the Laptop screen!', 'error');
+                showToast('Please enter the Room Code shown on the Laptop screen!', 'error');
                 return;
             }
 
             clientState.isMobileClient = true;
             clientState.roomCode = rawCode;
             clientState.myName = playerName;
-            clientState.connectedOnce = false;
+            clientState.lastHandSignature = '';
             if (!clientState.myPlayerId) {
                 clientState.myPlayerId = 'mob_' + Math.random().toString(36).substring(2, 8);
             }
@@ -1459,30 +1484,23 @@
 
             document.getElementById('mobPlayerName').textContent = clientState.myName;
             document.getElementById('mobPlayerAvatar').textContent = clientState.myAvatar;
-            document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Connecting to PIN ${rawCode}...`;
+            document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Connecting to Room ${rawCode}...`;
 
-            const sendJoinAnnouncement = () => {
-                const joinPacket = {
-                    msgId: createUniqueMsgId(),
-                    type: 'JOIN_REQUEST',
-                    roomCode: rawCode,
-                    playerId: clientState.myPlayerId,
-                    name: clientState.myName,
-                    avatar: clientState.myAvatar
-                };
-                if (localBroadcast) {
-                    try { localBroadcast.postMessage(joinPacket); } catch (e) {}
-                }
-                publishMqttMessage(rawCode, joinPacket);
-                if (hostConn && hostConn.open) {
-                    try { hostConn.send(joinPacket); } catch (e) {}
-                }
+            const joinPacket = {
+                msgId: createUniqueMsgId(),
+                type: 'JOIN_REQUEST',
+                roomCode: rawCode,
+                playerId: clientState.myPlayerId,
+                name: clientState.myName,
+                avatar: clientState.myAvatar
             };
 
-            // 1. Multi-Broker WSS Relay
-            initMultiBrokerMqtt(rawCode, false);
+            if (localBroadcast) {
+                try { localBroadcast.postMessage(joinPacket); } catch (e) {}
+            }
 
-            // 2. PeerJS WebRTC with JSON serialization
+            initMqttRelays(rawCode, false);
+
             try {
                 if (clientPeer) clientPeer.destroy();
                 clientPeer = new Peer(undefined, PEER_ICE_CONFIG);
@@ -1492,45 +1510,42 @@
                         reliable: true
                     });
                     hostConn.on('open', () => {
-                        sendJoinAnnouncement();
+                        document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Connected via WebRTC (${rawCode})`;
+                        hostConn.send({ ...joinPacket, msgId: createUniqueMsgId() });
                     });
                     hostConn.on('data', (data) => {
                         if (!isDuplicateMsg(data)) {
-                            if (data.type === 'STATE_SYNC') handleClientReceiveState(data);
-                            if (data.type === 'PLAYER_KICKED' && data.playerId === clientState.myPlayerId) handleClientKicked();
+                            handleClientReceiveState(data);
                         }
                     });
                 });
             } catch (e) {}
 
-            sendJoinAnnouncement();
-
-            // 3. Auto-Retry Handshake every 1.2s until connected
-            clearInterval(joinRetryTimer);
-            let attempts = 0;
-            joinRetryTimer = setInterval(() => {
-                if (!clientState.isMobileClient || clientState.connectedOnce || attempts > 20) {
-                    clearInterval(joinRetryTimer);
+            let retryCount = 0;
+            const joinRetryInterval = setInterval(() => {
+                if (!clientState.isMobileClient || clientState.myHand.length > 0 || retryCount >= 10) {
+                    clearInterval(joinRetryInterval);
                     return;
                 }
-                attempts++;
-                sendJoinAnnouncement();
+                retryCount++;
+                const retryPacket = { ...joinPacket, msgId: createUniqueMsgId() };
+                if (localBroadcast) {
+                    try { localBroadcast.postMessage(retryPacket); } catch (e) {}
+                }
+                publishMqttMessage(rawCode, retryPacket);
+                if (hostConn && hostConn.open) {
+                    try { hostConn.send(retryPacket); } catch (e) {}
+                }
             }, 1200);
         }
 
-        function handleClientKicked() {
-            showToast('You were removed from the table by the Laptop Host.', 'error');
-            clientState.isMobileClient = false;
-            clientState.connectedOnce = false;
-            returnToLanding();
-        }
-
+        // Host receives message from Mobile Phone
         function handleIncomingClientMessage(msg, peerConn = null) {
             if (!msg || clientState.isMobileClient) return;
             if (msg.roomCode && String(msg.roomCode).trim().toUpperCase() !== String(gameState.roomCode).trim().toUpperCase()) return;
 
             if (msg.type === 'JOIN_REQUEST') {
-                let existing = gameState.players.find(p => p.id === msg.playerId);
+                let existing = gameState.players.find(p => p.id === msg.playerId || (p.name.toLowerCase() === (msg.name || '').toLowerCase() && p.connectionType === 'p2p'));
                 if (!existing) {
                     const replaceableSeat = gameState.players.find(p => p.connectionType === 'sim' || p.isBot);
                     if (replaceableSeat) {
@@ -1541,14 +1556,6 @@
                         replaceableSeat.isBot = false;
                         replaceableSeat.connectionType = 'p2p';
                         replaceableSeat.peerConn = peerConn;
-                        // Also update any cards on table belonging to oldId
-                        gameState.tableCards.forEach(tc => {
-                            if (tc.playerId === oldId) {
-                                tc.playerId = msg.playerId;
-                                tc.playerName = msg.name;
-                                tc.playerAvatar = msg.avatar || '😎';
-                            }
-                        });
                         if (simState.activeSimPlayerId === oldId) {
                             simState.activeSimPlayerId = msg.playerId;
                         }
@@ -1560,11 +1567,10 @@
                             avatar: msg.avatar || '😎',
                             hand: [],
                             score: 0,
-                            tricksWon: 0,
-                            escapedRank: null,
                             isBot: false,
                             connectionType: 'p2p',
                             peerConn: peerConn,
+                            gotAwayRank: 0,
                             lastHandLabel: ''
                         };
                         gameState.players.push(existing);
@@ -1573,19 +1579,18 @@
                         }
                     }
 
-                    if (existing.hand.length === 0 && !existing.escapedRank) {
-                        if (gameState.deck.length === 0) {
-                            gameState.deck = createDeck();
-                        }
-                        const count = gameState.gameMode === 'showdown' ? 3 : 5;
+                    if (existing.hand.length === 0) {
+                        if (gameState.deck.length === 0) gameState.deck = createDeck();
+                        const count = gameState.gameMode === 'showdown' ? 3 : 6;
                         for (let i = 0; i < count; i++) {
                             if (gameState.deck.length > 0) existing.hand.push(gameState.deck.pop());
                         }
                         sortHand(existing.hand);
                     }
-                    showToast(`📱 ${msg.name} connected from Phone!`, 'success');
+                    showToast(`📱 ${msg.name} connected from Mobile!`, 'success');
                     playSound('deal');
                 } else {
+                    existing.id = msg.playerId;
                     existing.name = msg.name || existing.name;
                     existing.avatar = msg.avatar || existing.avatar;
                     existing.connectionType = 'p2p';
@@ -1594,8 +1599,41 @@
                 }
                 broadcastStateToAllClients();
                 renderLaptopTableUI();
-            } else if (msg.type === 'THROW_CARD') {
-                processPlayerCardThrow(msg.playerId, msg.cardId, msg.chosenSuit || null, msg.faceDown || false);
+            } else if (msg.type === 'THROW_CARD' || msg.type === 'PLAY_CARD') {
+                // Match player by ID or Name so mobile card throws NEVER fail
+                let targetPlayer = gameState.players.find(p => p.id === msg.playerId);
+                if (!targetPlayer && msg.playerName) {
+                    targetPlayer = gameState.players.find(p => p.name.toLowerCase() === msg.playerName.toLowerCase());
+                }
+                if (!targetPlayer && gameState.players.length > 0) {
+                    targetPlayer = gameState.players[gameState.turnIndex] || gameState.players[0];
+                }
+                if (targetPlayer) {
+                    const accepted = processPlayerCardThrow(
+                        targetPlayer.id,
+                        msg.cardId,
+                        msg.chosenSuit || null,
+                        msg.faceDown || false,
+                        msg.card || null,
+                        true // fromMobileRemote
+                    );
+                    // Send immediate PLAY_ACK back to mobile phone
+                    const ackPacket = {
+                        msgId: createUniqueMsgId(),
+                        type: 'PLAY_ACK',
+                        roomCode: gameState.roomCode,
+                        playerId: targetPlayer.id,
+                        actionId: msg.actionId || null,
+                        accepted: accepted
+                    };
+                    if (localBroadcast) {
+                        try { localBroadcast.postMessage(ackPacket); } catch (e) {}
+                    }
+                    publishMqttMessage(gameState.roomCode, ackPacket);
+                    if (peerConn && peerConn.open) {
+                        try { peerConn.send(ackPacket); } catch (e) {}
+                    }
+                }
             } else if (msg.type === 'DRAW_CARD') {
                 playerDrawCard(msg.playerId);
             } else if (msg.type === 'EMOJI_REACT') {
@@ -1608,8 +1646,9 @@
             if (!clientState.isMobileClient && String(msg.roomCode).toUpperCase() === String(gameState.roomCode).toUpperCase()) {
                 handleIncomingClientMessage(msg, null);
             } else if (clientState.isMobileClient && String(msg.roomCode).toUpperCase() === String(clientState.roomCode).toUpperCase()) {
-                if (msg.type === 'STATE_SYNC') handleClientReceiveState(msg);
-                if (msg.type === 'PLAYER_KICKED' && msg.playerId === clientState.myPlayerId) handleClientKicked();
+                if (msg.type === 'STATE_SYNC' || msg.type === 'PLAY_ACK' || msg.type === 'PLAYER_KICKED') {
+                    handleClientReceiveState(msg);
+                }
             }
         }
 
@@ -1624,15 +1663,15 @@
                 leadSuit: gameState.leadSuit,
                 trumpSuit: gameState.trumpSuit,
                 topDiscard: gameState.topDiscard,
+                strictRules: gameState.strictRules,
                 announcement: gameState.announcement,
                 playersSummary: gameState.players.map(p => ({
                     id: p.id,
                     name: p.name,
                     avatar: p.avatar,
                     score: p.score,
-                    tricksWon: p.tricksWon || 0,
-                    escapedRank: p.escapedRank || null,
-                    hand: p.hand
+                    hand: p.hand,
+                    gotAwayRank: p.gotAwayRank || 0
                 }))
             };
 
@@ -1648,26 +1687,63 @@
         }
 
         function handleClientReceiveState(data) {
-            if (!clientState.isMobileClient || data.type !== 'STATE_SYNC') return;
-            const me = data.playersSummary.find(p => p.id === clientState.myPlayerId);
+            if (!clientState.isMobileClient) return;
+
+            if (data.type === 'PLAYER_KICKED' && data.playerId === clientState.myPlayerId) {
+                clearInterval(pendingMobileThrowRetryTimer);
+                showToast('You were removed from the table by the Laptop Host.', 'error');
+                returnToLanding();
+                return;
+            }
+
+            if (data.type === 'PLAY_ACK' && data.playerId === clientState.myPlayerId) {
+                clearInterval(pendingMobileThrowRetryTimer);
+                pendingMobileThrowRetryTimer = null;
+                return;
+            }
+
+            if (data.type !== 'STATE_SYNC') return;
+
+            const me = data.playersSummary.find(p => p.id === clientState.myPlayerId) ||
+                       data.playersSummary.find(p => p.name.toLowerCase() === clientState.myName.toLowerCase());
             if (!me) return;
 
-            clientState.connectedOnce = true;
-            document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Connected to Laptop (PIN ${data.roomCode})`;
+            clientState.myPlayerId = me.id;
+            document.getElementById('mobConnectionBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Connected to Laptop (${data.roomCode})`;
             clientState.myHand = me.hand || [];
             clientState.myScore = me.score || 0;
+            clientState.turnPlayerId = data.turnPlayerId;
+            clientState.turnPlayerName = data.turnPlayerName;
+            clientState.leadSuit = data.leadSuit;
+            clientState.trumpSuit = data.trumpSuit;
+            clientState.strictRules = data.strictRules !== undefined ? data.strictRules : true;
+
             renderMobileControllerUI(data);
         }
 
         /*************************************************************************
-         * 6. REMOVE PLAYER, CLEAN SCORE & WINNER PODIUM FUNCTIONS
+         * 6. PLAYER MANAGEMENT, CLEAN SCORE & WINNER PODIUM
          *************************************************************************/
-        function removePlayerFromTable(playerId, event) {
+        function toggleAutoPlayBots(enabled) {
+            gameState.autoPlayBots = enabled;
+            showToast(enabled ? '🤖 Auto-Play Bots enabled' : '🤖 Auto-Play Bots paused', 'info');
+            if (enabled) triggerBotMoveIfNeeded();
+        }
+
+        function toggleStrictRules(enabled) {
+            gameState.strictRules = enabled;
+            showToast(enabled ? '📏 Strict Suit/Turn Rules enabled' : '🔓 Free Throw Mode: Any card can be thrown anytime!', 'info');
+            broadcastStateToAllClients();
+            renderLaptopTableUI();
+        }
+
+        function removePlayerById(playerId, event = null) {
             if (event) event.stopPropagation();
             const idx = gameState.players.findIndex(p => p.id === playerId);
             if (idx === -1) return;
 
             const removed = gameState.players[idx];
+            // Notify mobile client if connected
             const kickPacket = {
                 msgId: createUniqueMsgId(),
                 type: 'PLAYER_KICKED',
@@ -1682,52 +1758,29 @@
                 try { removed.peerConn.send(kickPacket); } catch (e) {}
             }
 
-            // Remove any thrown cards on the table from this player
-            gameState.tableCards = gameState.tableCards.filter(tc => tc.playerId !== playerId);
             gameState.players.splice(idx, 1);
-
             if (gameState.turnIndex >= gameState.players.length) {
                 gameState.turnIndex = 0;
             }
             if (simState.activeSimPlayerId === playerId) {
                 simState.activeSimPlayerId = gameState.players[0]?.id || null;
             }
-
-            gameState.maxSeats = Math.max(2, gameState.players.length);
-            const seatDropdown = document.getElementById('livePlayerCountSelect');
-            if (seatDropdown && gameState.players.length >= 2 && gameState.players.length <= 8) {
-                seatDropdown.value = String(gameState.players.length);
+            gameState.maxSeats = Math.max(1, gameState.players.length);
+            const seatSelect = document.getElementById('livePlayerCountSelect');
+            if (seatSelect && gameState.maxSeats >= 2 && gameState.maxSeats <= 8) {
+                seatSelect.value = String(gameState.maxSeats);
             }
 
-            showToast(`Removed ${removed.name} from the table.`, 'info');
+            showToast(`Removed ${removed.name} from the table`, 'info');
             renderLaptopTableUI();
-            renderPlayersModalList();
             broadcastStateToAllClients();
-        }
-
-        function removeAllVirtualAndBotPlayers() {
-            const realPhones = gameState.players.filter(p => p.connectionType === 'p2p');
-            if (realPhones.length > 0) {
-                gameState.players = realPhones;
-            } else {
-                // Keep at least 1 seat so the table has a host seat
-                gameState.players = gameState.players.slice(0, 1);
-                if (gameState.players[0]) {
-                    gameState.players[0].isBot = false;
-                    gameState.players[0].connectionType = 'sim';
-                }
-            }
-            gameState.turnIndex = 0;
-            simState.activeSimPlayerId = gameState.players[0]?.id || null;
-            showToast('Removed virtual/bot seats!', 'info');
-            renderLaptopTableUI();
             renderPlayersModalList();
-            broadcastStateToAllClients();
         }
+        window.removePlayerById = removePlayerById;
 
         function openPlayersModal() {
-            document.getElementById('playersModal').classList.remove('hidden');
             renderPlayersModalList();
+            document.getElementById('playersModal').classList.remove('hidden');
         }
 
         function closePlayersModal() {
@@ -1735,169 +1788,134 @@
         }
 
         function renderPlayersModalList() {
-            const listEl = document.getElementById('playersModalList');
-            if (!listEl) return;
-            listEl.innerHTML = '';
-
+            const list = document.getElementById('playersModalList');
+            if (!list) return;
+            list.innerHTML = '';
             if (gameState.players.length === 0) {
-                listEl.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No players currently seated.</p>`;
+                list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No players seated.</p>`;
                 return;
             }
-
-            gameState.players.forEach((p, i) => {
+            gameState.players.forEach((p, idx) => {
                 const row = document.createElement('div');
-                row.className = 'flex items-center justify-between bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5';
-                const connLabel = p.connectionType === 'p2p'
-                    ? '📱 Connected Phone'
-                    : p.isBot ? '🤖 AI Bot' : '📱 Virtual Phone';
+                row.className = 'flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-3 py-2';
+                const typeTag = p.connectionType === 'p2p' ? '📱 Connected Phone' : (p.isBot ? '🤖 AI Bot' : '📱 Virtual Phone');
                 row.innerHTML = `
                     <div class="flex items-center gap-2.5">
-                        <span class="text-xl">${p.avatar}</span>
+                        <span class="text-lg">${p.avatar}</span>
                         <div>
-                            <div class="text-xs font-bold text-white">Seat ${i + 1}: ${p.name}</div>
-                            <div class="text-[10px] text-slate-400">${connLabel} • Score: ${p.score} • Cards: ${p.hand.length}</div>
+                            <div class="text-xs font-bold text-white">Seat ${idx + 1}: ${p.name}</div>
+                            <div class="text-[10px] text-slate-400">${typeTag} • ${p.hand.length} cards • Score: ${p.score}</div>
                         </div>
                     </div>
-                    <button onclick="removePlayerFromTable('${p.id}', event)" class="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1 transition">
-                        <i class="fa-solid fa-user-xmark"></i> Remove
+                    <button onclick="removePlayerById('${p.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white text-xs font-bold transition">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Remove
                     </button>
                 `;
-                listEl.appendChild(row);
+                list.appendChild(row);
             });
         }
 
-        // CLEAN SCORE FUNCTION (Resets all player & partnership scores to 0)
+        function removeAllVirtualBots() {
+            const realPhones = gameState.players.filter(p => p.connectionType === 'p2p');
+            if (realPhones.length === 0) {
+                // Keep at least 1 seat so table isn't empty
+                gameState.players = gameState.players.slice(0, 1);
+            } else {
+                gameState.players = realPhones;
+            }
+            gameState.turnIndex = 0;
+            gameState.maxSeats = Math.max(2, gameState.players.length);
+            showToast('Removed virtual/bot players!', 'info');
+            renderPlayersModalList();
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+        }
+
         function cleanAllScores() {
             gameState.players.forEach(p => {
                 p.score = 0;
-                p.tricksWon = 0;
-                p.escapedRank = null;
+                p.gotAwayRank = 0;
                 p.lastHandLabel = '';
             });
-            gameState.bridgeNSTricks = 0;
-            gameState.bridgeEWTricks = 0;
-            gameState.escapedPlayersOrder = [];
-            gameState.announcement = '🧹 All player scores and trick counters have been cleaned to 0!';
-
-            playSound('deal');
+            gameState.bridge.nsTricks = 0;
+            gameState.bridge.ewTricks = 0;
+            gameState.announcement = '🧹 All player scores and partnership tricks have been reset to 0!';
+            showToast('🧹 All scores cleaned and reset to 0!', 'success');
             renderLaptopTableUI();
             broadcastStateToAllClients();
-            showToast('🧹 All scores & trick counters reset to 0!', 'success');
         }
+        window.cleanAllScores = cleanAllScores;
 
-        // DISPLAY WINNER & PODIUM MODAL
-        function openWinnerModal(customHeadline = null, customSub = null) {
+        function openWinnerModal(customHeadline = null) {
             const modal = document.getElementById('winnerModal');
+            const podiumGrid = document.getElementById('winnerPodiumGrid');
+            const listEl = document.getElementById('winnerLeaderboardList');
             const titleEl = document.getElementById('winnerModalTitle');
             const subEl = document.getElementById('winnerModalSubtitle');
-            const badgeEl = document.getElementById('winnerModalModeBadge');
-            const listEl = document.getElementById('winnerLeaderboardList');
 
-            badgeEl.textContent = getModeDisplayName(gameState.gameMode);
+            const sorted = [...gameState.players].sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                return a.hand.length - b.hand.length;
+            });
 
-            // Rank players appropriately based on current Game Mode
-            const ranked = [...gameState.players];
-            if (gameState.gameMode === 'getaway') {
-                ranked.sort((a, b) => {
-                    const aEsc = a.escapedRank || 999;
-                    const bEsc = b.escapedRank || 999;
-                    if (aEsc !== bEsc) return aEsc - bEsc;
-                    if (a.hand.length !== b.hand.length) return a.hand.length - b.hand.length;
-                    return b.score - a.score;
-                });
-            } else {
-                ranked.sort((a, b) => {
-                    if (b.score !== a.score) return b.score - a.score;
-                    if ((b.tricksWon || 0) !== (a.tricksWon || 0)) return (b.tricksWon || 0) - (a.tricksWon || 0);
-                    return a.hand.length - b.hand.length;
-                });
-            }
+            const champ = sorted[0];
+            titleEl.textContent = customHeadline || (champ ? `🏆 ${champ.name} Leads the Table!` : 'Table Standings');
+            subEl.textContent = `${getModeDisplayName(gameState.gameMode)} • ${gameState.players.length} Players`;
 
-            const topWinner = ranked[0];
+            // Render Top 3 Podium (2nd, 1st, 3rd)
+            podiumGrid.innerHTML = '';
+            const podiumOrder = [sorted[1], sorted[0], sorted[2]];
+            const heights = ['h-24', 'h-32', 'h-20'];
+            const medals = ['🥈 2nd', '👑 1st', '🥉 3rd'];
+            const borders = ['border-slate-600 bg-slate-800/80', 'border-amber-400 bg-amber-500/20', 'border-amber-700 bg-slate-800/60'];
 
-            if (customHeadline) {
-                titleEl.textContent = customHeadline;
-                subEl.textContent = customSub || '';
-            } else if (gameState.gameMode === 'bridge') {
-                const declTeam = gameState.bridgeDeclarer;
-                const declTricks = declTeam === 'NS' ? gameState.bridgeNSTricks : gameState.bridgeEWTricks;
-                const defTricks = declTeam === 'NS' ? gameState.bridgeEWTricks : gameState.bridgeNSTricks;
-                const target = gameState.bridgeTargetTricks;
-                if (declTricks >= target) {
-                    titleEl.textContent = `🏆 Team ${declTeam === 'NS' ? 'North/South' : 'East/West'} Wins!`;
-                    subEl.textContent = `Contract Made! (${declTricks} / ${target} Tricks won with Trump ${gameState.trumpSuit})`;
-                } else if (declTricks + defTricks > 0) {
-                    const leaderTeam = gameState.bridgeNSTricks >= gameState.bridgeEWTricks ? 'Team North/South' : 'Team East/West';
-                    titleEl.textContent = `🏆 Leading: ${leaderTeam}`;
-                    subEl.textContent = `N/S Tricks: ${gameState.bridgeNSTricks} • E/W Tricks: ${gameState.bridgeEWTricks} (Target: ${target})`;
-                } else if (topWinner) {
-                    titleEl.textContent = `🏆 Top Player: ${topWinner.avatar} ${topWinner.name}`;
-                    subEl.textContent = `Score: ${topWinner.score} pts`;
+            podiumOrder.forEach((p, idx) => {
+                if (!p) {
+                    podiumGrid.innerHTML += `<div></div>`;
+                    return;
                 }
-            } else if (gameState.gameMode === 'getaway' && topWinner) {
-                const loser = ranked[ranked.length - 1];
-                if (topWinner.escapedRank === 1) {
-                    titleEl.textContent = `🏆 1st Getaway: ${topWinner.avatar} ${topWinner.name}!`;
-                    subEl.textContent = loser && loser.hand.length > 0
-                        ? `${loser.avatar} ${loser.name} was caught holding ${loser.hand.length} cards (Bhabhi)!`
-                        : `Escaped 1st with ${topWinner.score} total points!`;
-                } else {
-                    titleEl.textContent = `🏆 Leader: ${topWinner.avatar} ${topWinner.name}`;
-                    subEl.textContent = `Fewest cards (${topWinner.hand.length}) • Score: ${topWinner.score} pts`;
-                }
-            } else if (topWinner) {
-                titleEl.textContent = `🏆 Winner: ${topWinner.avatar} ${topWinner.name}!`;
-                subEl.textContent = `Total Score: ${topWinner.score} pts • Tricks Won: ${topWinner.tricksWon || 0}`;
-            }
-
-            listEl.innerHTML = '';
-            ranked.forEach((p, idx) => {
-                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
-                let statusTag = `${p.hand.length} cards left`;
-                if (gameState.gameMode === 'getaway') {
-                    if (p.escapedRank) {
-                        statusTag = `🏃 Escaped #${p.escapedRank}`;
-                    } else if (idx === ranked.length - 1 && ranked.length > 1 && gameState.escapedPlayersOrder.length >= ranked.length - 1) {
-                        statusTag = `🚨 Caught (Bhabhi) • ${p.hand.length} cards`;
-                    }
-                } else if (gameState.gameMode === 'bridge') {
-                    const seatNum = gameState.players.findIndex(pl => pl.id === p.id);
-                    const teamTag = (seatNum % 2 === 0) ? 'Team N/S' : 'Team E/W';
-                    statusTag = `${teamTag} • ${p.tricksWon || 0} tricks`;
-                } else if (p.lastHandLabel) {
-                    statusTag = p.lastHandLabel;
-                }
-
-                const item = document.createElement('div');
-                item.className = `flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${
-                    idx === 0 ? 'bg-amber-500/15 border-amber-500/50' : 'bg-slate-900 border-slate-800'
-                }`;
-                item.innerHTML = `
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-lg font-bold w-6 text-center">${medal}</span>
-                        <span class="text-xl">${p.avatar}</span>
-                        <div>
-                            <div class="text-xs sm:text-sm font-bold text-white">${p.name}</div>
-                            <div class="text-[11px] text-slate-400">${statusTag}</div>
+                podiumGrid.innerHTML += `
+                    <div class="flex flex-col items-center">
+                        <div class="text-2xl mb-1">${p.avatar}</div>
+                        <div class="text-xs font-bold text-white truncate max-w-[100px]">${p.name}</div>
+                        <div class="text-[11px] font-extrabold text-amber-400 mb-1">${p.score} pts</div>
+                        <div class="w-full ${heights[idx]} rounded-t-2xl border-2 ${borders[idx]} flex items-center justify-center font-display font-extrabold text-xs text-white shadow-lg">
+                            ${medals[idx]}
                         </div>
                     </div>
-                    <div class="text-right">
-                        <span class="font-display font-extrabold text-sm sm:text-base text-amber-400">${p.score} pts</span>
+                `;
+            });
+
+            // Full Leaderboard
+            listEl.innerHTML = '';
+            sorted.forEach((p, idx) => {
+                const statusBadge = p.gotAwayRank > 0
+                    ? `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">🏃 Got Away #${p.gotAwayRank}</span>`
+                    : `<span class="text-[10px] text-slate-400">${p.hand.length} cards left</span>`;
+                listEl.innerHTML += `
+                    <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 text-xs font-extrabold text-amber-400">#${idx + 1}</span>
+                            <span class="text-base">${p.avatar}</span>
+                            <span class="text-xs font-bold text-white">${p.name}</span>
+                            ${statusBadge}
+                        </div>
+                        <span class="font-display font-extrabold text-sm text-emerald-400">${p.score} pts</span>
                     </div>
                 `;
-                listEl.appendChild(item);
             });
 
             playSound('winTrick');
             modal.classList.remove('hidden');
         }
+        window.openWinnerModal = openWinnerModal;
 
         function closeWinnerModal() {
             document.getElementById('winnerModal').classList.add('hidden');
         }
 
         /*************************************************************************
-         * 7. GAME MODES & RULES ENGINE (GETAWAY, BRIDGE, TRICK, SHEDDING, SHOWDOWN, SANDBOX)
+         * 7. GAME MODES & RULES ENGINE (GETAWAY, BRIDGE, TRICK, SHEDDING, SHOWDOWN)
          *************************************************************************/
         function changeGameModeLive(newMode) {
             gameState.gameMode = newMode;
@@ -1905,15 +1923,15 @@
             dealNewRound();
         }
 
-        function updateBridgeContractSettings() {
-            const decl = document.getElementById('bridgeDeclarerSelect')?.value || 'NS';
-            const target = parseInt(document.getElementById('bridgeTargetSelect')?.value, 10) || 7;
+        function updateBridgeContract() {
+            const dec = document.getElementById('bridgeDeclarerTeam')?.value || 'NS';
+            const target = parseInt(document.getElementById('bridgeTargetTricks')?.value, 10) || 7;
             const trump = document.getElementById('bridgeTrumpSelect')?.value || '♠';
-
-            gameState.bridgeDeclarer = decl;
-            gameState.bridgeTargetTricks = target;
-            gameState.trumpSuit = trump;
-            gameState.announcement = `Bridge Contract: Team ${decl} to win ${target}/13 tricks • Trump: ${trump === 'NT' ? 'No Trump (NT)' : trump}`;
+            gameState.bridge.declarerTeam = dec;
+            gameState.bridge.targetTricks = target;
+            gameState.bridge.trumpSuit = trump;
+            gameState.trumpSuit = trump === 'NT' ? null : trump;
+            gameState.announcement = `Bridge Contract: Team ${dec} needs ${target} tricks (${trump === 'NT' ? 'No-Trump' : 'Trump ' + trump})`;
             renderLaptopTableUI();
             broadcastStateToAllClients();
         }
@@ -1929,11 +1947,10 @@
                     avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
                     hand: [],
                     score: 0,
-                    tricksWon: 0,
-                    escapedRank: null,
-                    isBot: idx >= 2,
-                    connectionType: idx >= 2 ? 'bot' : 'sim',
+                    isBot: idx >= 1,
+                    connectionType: idx >= 1 ? 'bot' : 'sim',
                     peerConn: null,
+                    gotAwayRank: 0,
                     lastHandLabel: ''
                 });
             }
@@ -1956,26 +1973,24 @@
                 avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
                 hand: [],
                 score: 0,
-                tricksWon: 0,
-                escapedRank: null,
                 isBot: false,
                 connectionType: 'sim',
                 peerConn: null,
+                gotAwayRank: 0,
                 lastHandLabel: ''
             };
             gameState.players.push(newPlayer);
             gameState.maxSeats = gameState.players.length;
             document.getElementById('livePlayerCountSelect').value = String(Math.min(8, gameState.maxSeats));
             simState.activeSimPlayerId = newPlayer.id;
-            renderLaptopTableUI();
-            broadcastStateToAllClients();
-            showToast(`Added ${newPlayer.name}'s Seat to the table!`, 'success');
+            dealNewRound();
+            showToast(`Added ${newPlayer.name}'s Phone Seat to the table!`, 'success');
         }
 
         function getModeDisplayName(mode) {
             switch (mode) {
                 case 'getaway': return 'Getaway (Bhabhi / Thulla)';
-                case 'bridge': return 'Bridge (Contract & Partnership)';
+                case 'bridge': return 'Bridge (Partnership Contract)';
                 case 'trick': return 'Trick-Taking Classic (Spades Trump)';
                 case 'shedding': return 'Crazy Eights / UNO-Style Shedding';
                 case 'showdown': return 'Teen Patti 3-Card Showdown';
@@ -1988,6 +2003,9 @@
             try {
                 clearTimeout(botTimer);
                 gameState.resolvingTrick = false;
+                gameState.burnPileCount = 0;
+                gameState.getawayFinishOrder = 0;
+                gameState.firstTrickOfRound = true;
 
                 const toastEl = document.getElementById('roundResultToast');
                 if (toastEl) {
@@ -1995,26 +2013,24 @@
                     toastEl.classList.remove('inline-flex');
                 }
 
-                // Ensure at least 2 players exist on table
-                if (gameState.players.length < 2) {
-                    const seatSelect = document.getElementById('livePlayerCountSelect');
-                    const desiredSeats = seatSelect ? (parseInt(seatSelect.value, 10) || 4) : 4;
-                    while (gameState.players.length < desiredSeats) {
-                        const idx = gameState.players.length;
-                        gameState.players.push({
-                            id: `p_${Date.now()}_${idx}`,
-                            name: DEFAULT_NAMES[idx % DEFAULT_NAMES.length],
-                            avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
-                            hand: [],
-                            score: 0,
-                            tricksWon: 0,
-                            escapedRank: null,
-                            isBot: idx >= 2,
-                            connectionType: idx >= 2 ? 'bot' : 'sim',
-                            peerConn: null,
-                            lastHandLabel: ''
-                        });
-                    }
+                const seatSelect = document.getElementById('livePlayerCountSelect');
+                const desiredSeats = seatSelect ? (parseInt(seatSelect.value, 10) || 4) : (gameState.maxSeats || 4);
+                gameState.maxSeats = Math.max(2, Math.min(8, desiredSeats));
+
+                while (gameState.players.length < gameState.maxSeats) {
+                    const idx = gameState.players.length;
+                    gameState.players.push({
+                        id: `p_${Date.now()}_${idx}`,
+                        name: DEFAULT_NAMES[idx % DEFAULT_NAMES.length],
+                        avatar: DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length],
+                        hand: [],
+                        score: 0,
+                        isBot: idx >= 1,
+                        connectionType: idx >= 1 ? 'bot' : 'sim',
+                        peerConn: null,
+                        gotAwayRank: 0,
+                        lastHandLabel: ''
+                    });
                 }
 
                 const fullDeck = createDeck();
@@ -2025,44 +2041,43 @@
                 gameState.topDiscard = null;
                 gameState.turnDirection = 1;
                 gameState.turnIndex = 0;
-                gameState.burnPileCount = 0;
-                gameState.escapedPlayersOrder = [];
-                gameState.bridgeNSTricks = 0;
-                gameState.bridgeEWTricks = 0;
 
                 gameState.players.forEach(p => {
                     p.hand = [];
-                    p.tricksWon = 0;
-                    p.escapedRank = null;
+                    p.gotAwayRank = 0;
                     p.lastHandLabel = '';
                 });
 
                 if (gameState.gameMode === 'getaway') {
-                    // Deal ALL 52 cards across players in Getaway (Bhabhi)
+                    // Distribute ALL 52 cards across players
                     let pIdx = 0;
                     while (fullDeck.length > 0) {
                         gameState.players[pIdx % numPlayers].hand.push(fullDeck.pop());
                         pIdx++;
                     }
                     gameState.deck = [];
-                    // Player holding Ace of Spades (A♠) leads first in Getaway!
-                    const aceHolderIdx = gameState.players.findIndex(p => p.hand.some(c => c.rank === 'A' && c.suit === '♠'));
-                    gameState.turnIndex = aceHolderIdx !== -1 ? aceHolderIdx : 0;
-                    gameState.announcement = `🏃 Getaway Dealt! ${gameState.players[gameState.turnIndex].name} (holds A♠) leads first! Follow suit or give Thulla!`;
+                    gameState.players.forEach(p => sortHand(p.hand));
+
+                    // Player holding Ace of Spades (A♠) starts
+                    const aceSpadesHolderIdx = gameState.players.findIndex(p => p.hand.some(c => c.rank === 'A' && c.suit === '♠'));
+                    gameState.turnIndex = aceSpadesHolderIdx !== -1 ? aceSpadesHolderIdx : 0;
+                    const starterName = gameState.players[gameState.turnIndex]?.name || 'Player 1';
+                    gameState.announcement = `🏃 Getaway! ${starterName} holds Ace of Spades (A♠) and leads first!`;
                 } else if (gameState.gameMode === 'bridge') {
-                    // Bridge: Deal 52 cards evenly (13 each for 4 players)
-                    const cardsPerPlayer = Math.floor(fullDeck.length / numPlayers);
+                    gameState.bridge.nsTricks = 0;
+                    gameState.bridge.ewTricks = 0;
+                    const trumpSel = document.getElementById('bridgeTrumpSelect')?.value || '♠';
+                    gameState.trumpSuit = trumpSel === 'NT' ? null : trumpSel;
+
+                    const cardsPerPlayer = Math.min(13, Math.floor(fullDeck.length / numPlayers));
                     for (let c = 0; c < cardsPerPlayer; c++) {
                         for (let p = 0; p < numPlayers; p++) {
                             gameState.players[p].hand.push(fullDeck.pop());
                         }
                     }
                     gameState.deck = fullDeck;
-                    const trumpSelect = document.getElementById('bridgeTrumpSelect');
-                    gameState.trumpSuit = trumpSelect ? trumpSelect.value : '♠';
-                    gameState.bridgeDeclarer = document.getElementById('bridgeDeclarerSelect')?.value || 'NS';
-                    gameState.bridgeTargetTricks = parseInt(document.getElementById('bridgeTargetSelect')?.value, 10) || 7;
-                    gameState.announcement = `🌉 Bridge Hand Dealt! Contract: Team ${gameState.bridgeDeclarer} (${gameState.bridgeTargetTricks} tricks, Trump: ${gameState.trumpSuit}) • ${gameState.players[0].name} leads!`;
+                    gameState.players.forEach(p => sortHand(p.hand));
+                    gameState.announcement = `🌉 Bridge Deal Complete! ${gameState.players[0].name} leads (${trumpSel === 'NT' ? 'No-Trump' : 'Trump ' + trumpSel}).`;
                 } else if (gameState.gameMode === 'trick') {
                     gameState.trumpSuit = '♠';
                     const cardsPerPlayer = Math.min(13, Math.floor(fullDeck.length / numPlayers));
@@ -2072,6 +2087,7 @@
                         }
                     }
                     gameState.deck = fullDeck;
+                    gameState.players.forEach(p => sortHand(p.hand));
                     gameState.announcement = `${gameState.players[0].name}'s turn to lead the trick!`;
                 } else if (gameState.gameMode === 'shedding') {
                     const cardsPerPlayer = numPlayers >= 6 ? 5 : 7;
@@ -2092,14 +2108,17 @@
                         rotation: -4
                     });
                     gameState.deck = fullDeck;
+                    gameState.players.forEach(p => sortHand(p.hand));
                     gameState.announcement = `Match ${starter.rank} or ${starter.suit} (8 is Wild!) — ${gameState.players[0].name}'s turn`;
                 } else if (gameState.gameMode === 'showdown') {
-                    for (let c = 0; c < 3; c++) {
+                    const cardsPerPlayer = 3;
+                    for (let c = 0; c < cardsPerPlayer; c++) {
                         for (let p = 0; p < numPlayers; p++) {
                             gameState.players[p].hand.push(fullDeck.pop());
                         }
                     }
                     gameState.deck = fullDeck;
+                    gameState.players.forEach(p => sortHand(p.hand));
                     gameState.announcement = `Teen Patti 3-Card Deal! Throw your cards or click Showdown Reveal!`;
                 } else {
                     const cardsPerPlayer = Math.min(7, Math.floor(fullDeck.length / numPlayers));
@@ -2109,10 +2128,10 @@
                         }
                     }
                     gameState.deck = fullDeck;
+                    gameState.players.forEach(p => sortHand(p.hand));
                     gameState.announcement = `Sandbox Mode: Any player can throw cards face-up/down or draw!`;
                 }
 
-                gameState.players.forEach(p => sortHand(p.hand));
                 gameState.roundActive = true;
                 playSound('deal');
 
@@ -2122,12 +2141,13 @@
                 syncSimulatorToActiveTurn();
                 renderLaptopTableUI();
                 broadcastStateToAllClients();
-                showToast(`🃏 Dealt new ${getModeDisplayName(gameState.gameMode)} hand to ${numPlayers} players!`, 'success');
+                showToast(`🃏 Dealt new hand for ${getModeDisplayName(gameState.gameMode)}!`, 'success');
                 triggerBotMoveIfNeeded();
             } catch (err) {
                 console.error('Error in dealNewRound:', err);
             }
         }
+        window.dealNewRound = dealNewRound;
 
         function dealOneCardToAllOrActive() {
             if (gameState.players.length === 0) {
@@ -2139,8 +2159,11 @@
             showToast(`Dealt +1 card to ${targetPlayer.name}!`, 'success');
         }
 
+        // Check if a card is valid for a player
         function isCardPlayable(player, card) {
-            if (!player || !card || gameState.resolvingTrick) return false;
+            if (!player || !card) return false;
+            if (gameState.resolvingTrick) return false;
+            if (!gameState.strictRules) return true;
 
             if (gameState.gameMode === 'sandbox' || gameState.gameMode === 'showdown') {
                 return true;
@@ -2151,7 +2174,6 @@
                 return false;
             }
 
-            // GETAWAY, BRIDGE, AND TRICK-TAKING ALL REQUIRE FOLLOWING LED SUIT IF POSSIBLE
             if (gameState.gameMode === 'getaway' || gameState.gameMode === 'bridge' || gameState.gameMode === 'trick') {
                 if (!gameState.leadSuit) return true;
                 const hasLeadSuit = player.hand.some(c => c.suit === gameState.leadSuit);
@@ -2171,83 +2193,56 @@
             return true;
         }
 
-        // Count active players who still hold cards in Getaway mode
-        function getGetawayActivePlayersCount() {
-            return gameState.players.filter(p => !p.escapedRank && p.hand.length > 0).length;
-        }
-
-        // Check and register any players whose hands are now empty in Getaway
-        function checkGetawayEscapes() {
-            gameState.players.forEach(p => {
-                if (p.hand.length === 0 && !p.escapedRank) {
-                    gameState.escapedPlayersOrder.push(p.id);
-                    p.escapedRank = gameState.escapedPlayersOrder.length;
-                    const bonus = Math.max(2, 12 - p.escapedRank * 3);
-                    p.score += bonus;
-                    showToast(`🏃 ${p.name} GOT AWAY (#${p.escapedRank})! +${bonus} pts!`, 'success');
-                }
-            });
-
-            // Check if only 1 (or 0) players remain holding cards -> Game Over!
-            const stillHolding = gameState.players.filter(p => p.hand.length > 0);
-            if (gameState.players.length >= 2 && stillHolding.length <= 1) {
-                const loser = stillHolding[0];
-                const firstWinnerId = gameState.escapedPlayersOrder[0];
-                const firstWinner = gameState.players.find(p => p.id === firstWinnerId) || gameState.players[0];
-                const headline = `🏆 ${firstWinner.avatar} ${firstWinner.name} Got Away 1st!`;
-                const sub = loser
-                    ? `🚨 ${loser.avatar} ${loser.name} is left holding ${loser.hand.length} cards (Bhabhi)!`
-                    : `All players escaped!`;
-                gameState.announcement = `${headline} ${sub}`;
-                renderLaptopTableUI();
-                broadcastStateToAllClients();
-                setTimeout(() => openWinnerModal(headline, sub), 700);
-                return true;
-            }
-            return false;
-        }
-
-        function advanceGetawayTurn(fromIndex = gameState.turnIndex) {
-            const n = gameState.players.length;
-            if (n === 0) return;
-            for (let step = 1; step <= n; step++) {
-                const candidateIdx = (fromIndex + step) % n;
-                const p = gameState.players[candidateIdx];
-                if (p && p.hand.length > 0 && !p.escapedRank) {
-                    gameState.turnIndex = candidateIdx;
-                    return;
-                }
-            }
-        }
-
-        function processPlayerCardThrow(playerId, cardId, chosenWildSuit = null, faceDown = false) {
-            if (gameState.resolvingTrick) return;
-            const playerIndex = gameState.players.findIndex(p => p.id === playerId);
-            if (playerIndex === -1) return;
+        // Process a card thrown from Mobile Phone or Simulator
+        function processPlayerCardThrow(playerId, cardId, chosenWildSuit = null, faceDown = false, fallbackCardObj = null, fromMobileRemote = false) {
+            if (gameState.resolvingTrick) return false;
+            let playerIndex = gameState.players.findIndex(p => p.id === playerId);
+            if (playerIndex === -1) return false;
             const player = gameState.players[playerIndex];
 
-            const cardIndex = player.hand.findIndex(c => c.id === cardId);
-            if (cardIndex === -1) return;
-            const card = player.hand[cardIndex];
+            // Find the card by ID or rank+suit or fallbackCardObj
+            let cardIndex = player.hand.findIndex(c => c.id === cardId);
+            if (cardIndex === -1 && fallbackCardObj) {
+                cardIndex = player.hand.findIndex(c => c.rank === fallbackCardObj.rank && c.suit === fallbackCardObj.suit);
+            }
+            if (cardIndex === -1 && player.hand.length > 0 && !cardId) {
+                cardIndex = 0;
+            }
 
-            if (['getaway', 'bridge', 'trick', 'shedding'].includes(gameState.gameMode)) {
-                if (playerIndex !== gameState.turnIndex) {
-                    showToast(`Wait for your turn! It is ${gameState.players[gameState.turnIndex]?.name}'s turn.`, 'error');
-                    return;
-                }
-                if (!isCardPlayable(player, card)) {
-                    if (gameState.gameMode === 'shedding') {
-                        showToast(`Card must match suit (${gameState.leadSuit}) or rank (${gameState.topDiscard?.rank}), or be a Wild 8!`, 'error');
-                    } else {
-                        showToast(`You have ${gameState.leadSuit} in your hand — you must follow the led suit!`, 'error');
-                    }
-                    return;
+            let card = cardIndex !== -1 ? player.hand[cardIndex] : fallbackCardObj;
+            if (!card) return false;
+
+            // PREVENT TURN DEADLOCK FOR REAL PHONES:
+            // If a real mobile phone throws a card while the current turn seat is a Virtual/Bot seat (or at the start of a trick),
+            // shift the turn to this mobile player so their button ALWAYS works!
+            const currentTurnPlayer = gameState.players[gameState.turnIndex];
+            if (playerIndex !== gameState.turnIndex) {
+                if (!gameState.strictRules || fromMobileRemote && (currentTurnPlayer?.isBot || currentTurnPlayer?.connectionType === 'sim' || gameState.tableCards.length === 0)) {
+                    gameState.turnIndex = playerIndex;
+                } else {
+                    showToast(`Wait for your turn! It is ${currentTurnPlayer?.name}'s turn.`, 'error');
+                    return false;
                 }
             }
 
-            player.hand.splice(cardIndex, 1);
-            const rot = (Math.random() * 14 - 7).toFixed(1);
+            // Enforce suit rules only if Strict Rules is ON
+            if (gameState.strictRules && (gameState.gameMode === 'trick' || gameState.gameMode === 'bridge' || gameState.gameMode === 'getaway' || gameState.gameMode === 'shedding')) {
+                if (!isCardPlayable(player, card)) {
+                    if (gameState.gameMode === 'shedding') {
+                        showToast(`Must match ${gameState.leadSuit} or ${gameState.topDiscard?.rank} (or play an 8)!`, 'error');
+                    } else {
+                        showToast(`Must follow lead suit (${gameState.leadSuit})!`, 'error');
+                    }
+                    return false;
+                }
+            }
 
+            // Remove card from player's hand if present
+            if (cardIndex !== -1) {
+                player.hand.splice(cardIndex, 1);
+            }
+
+            const rot = (Math.random() * 14 - 7).toFixed(1);
             gameState.tableCards.push({
                 card,
                 playerId: player.id,
@@ -2259,103 +2254,37 @@
 
             playSound('cardThrow');
 
-            // ================= MODE 1: GETAWAY (BHABHI / THULLA) =================
+            // 1. GETAWAY (BHABHI / THULLA) MODE LOGIC
             if (gameState.gameMode === 'getaway') {
+                const activePlayersCount = getActiveGetawayPlayersCount(player.id);
+
                 if (!gameState.leadSuit) {
                     gameState.leadSuit = card.suit;
-                }
-
-                // Check if this card is a THULLA (off-suit card played when void in leadSuit)
-                if (card.suit !== gameState.leadSuit) {
+                } else if (card.suit !== gameState.leadSuit) {
+                    // THULLA! Player was void in leadSuit and threw an off-suit card!
                     gameState.resolvingTrick = true;
-                    playSound('penalty');
-
-                    // Find who played the highest card of the LED SUIT so far
-                    const ledSuitPlays = gameState.tableCards.filter(tc => tc.card.suit === gameState.leadSuit);
-                    ledSuitPlays.sort((a, b) => b.card.value - a.card.value);
-                    const penaltyTargetEntry = ledSuitPlays[0] || gameState.tableCards[0];
-                    const victim = gameState.players.find(p => p.id === penaltyTargetEntry.playerId);
-
-                    const msg = `💥 THULLA by ${player.name} (${card.rank}${card.suit})! ${victim ? victim.name : 'Leader'} must pick up all ${gameState.tableCards.length} cards!`;
-                    gameState.announcement = msg;
-                    showRoundWinnerBanner(msg);
+                    gameState.announcement = `💥 THULLA! ${player.name} threw off-suit ${card.rank}${card.suit}! Highest ${gameState.leadSuit} picks up the pile!`;
                     renderLaptopTableUI();
                     broadcastStateToAllClients();
-
-                    setTimeout(() => {
-                        if (victim) {
-                            gameState.tableCards.forEach(tc => victim.hand.push(tc.card));
-                            sortHand(victim.hand);
-                            victim.escapedRank = null; // If they had 0 cards, they now have cards again!
-                            gameState.escapedPlayersOrder = gameState.escapedPlayersOrder.filter(id => id !== victim.id);
-                        }
-                        gameState.tableCards = [];
-                        gameState.leadSuit = null;
-                        gameState.resolvingTrick = false;
-
-                        if (!checkGetawayEscapes()) {
-                            const victimIdx = gameState.players.findIndex(p => p.id === victim?.id);
-                            if (victimIdx !== -1 && gameState.players[victimIdx].hand.length > 0) {
-                                gameState.turnIndex = victimIdx;
-                            } else {
-                                advanceGetawayTurn(playerIndex);
-                            }
-                            gameState.announcement = `${victim?.name || 'Player'} picked up the pile and leads the next trick!`;
-                            syncSimulatorToActiveTurn();
-                            renderLaptopTableUI();
-                            broadcastStateToAllClients();
-                            triggerBotMoveIfNeeded();
-                        }
-                    }, 1500);
-                    return;
+                    setTimeout(() => resolveGetawayTrick(true), 1300);
+                    return true;
                 }
 
-                // Otherwise card matched leadSuit: check how many active players needed in this trick
-                // Active players in this trick = players who already played in this trick + players who still have cards and haven't played yet
-                const playedIds = new Set(gameState.tableCards.map(tc => tc.playerId));
-                const remainingActiveToPlay = gameState.players.filter(p => !p.escapedRank && p.hand.length > 0 && !playedIds.has(p.id));
-
-                if (remainingActiveToPlay.length === 0) {
-                    // Everyone followed suit safely! Sweep trick to Burn/Waste Pile
+                if (gameState.tableCards.length >= activePlayersCount) {
                     gameState.resolvingTrick = true;
-                    const ledSuitPlays = [...gameState.tableCards].filter(tc => tc.card.suit === gameState.leadSuit);
-                    ledSuitPlays.sort((a, b) => b.card.value - a.card.value);
-                    const highEntry = ledSuitPlays[0] || gameState.tableCards[0];
-
-                    gameState.announcement = `✅ Safe Trick! Sweeping ${gameState.tableCards.length} cards to Waste Pile...`;
+                    gameState.announcement = `All players followed ${gameState.leadSuit} — sweeping trick to Burn Pile...`;
                     renderLaptopTableUI();
                     broadcastStateToAllClients();
-
-                    setTimeout(() => {
-                        gameState.burnPileCount += gameState.tableCards.length;
-                        gameState.tableCards = [];
-                        gameState.leadSuit = null;
-                        gameState.resolvingTrick = false;
-
-                        if (!checkGetawayEscapes()) {
-                            const leaderIdx = gameState.players.findIndex(p => p.id === highEntry.playerId);
-                            if (leaderIdx !== -1 && gameState.players[leaderIdx].hand.length > 0 && !gameState.players[leaderIdx].escapedRank) {
-                                gameState.turnIndex = leaderIdx;
-                            } else {
-                                advanceGetawayTurn(leaderIdx !== -1 ? leaderIdx : 0);
-                            }
-                            const nextLeader = gameState.players[gameState.turnIndex];
-                            gameState.announcement = `🔥 Trick burned (${gameState.burnPileCount} burned)! ${nextLeader?.name || 'Next player'} leads!`;
-                            syncSimulatorToActiveTurn();
-                            renderLaptopTableUI();
-                            broadcastStateToAllClients();
-                            triggerBotMoveIfNeeded();
-                        }
-                    }, 1250);
-                    return;
+                    setTimeout(() => resolveGetawayTrick(false), 1150);
+                    return true;
                 } else {
-                    advanceGetawayTurn(playerIndex);
+                    advanceTurnToNextActivePlayer();
                     const nextP = gameState.players[gameState.turnIndex];
-                    gameState.announcement = `${player.name} played ${card.rank}${card.suit} • ${nextP?.name}'s turn (Lead: ${gameState.leadSuit})`;
+                    gameState.announcement = `${player.name} played ${card.rank}${card.suit} • Lead: ${gameState.leadSuit} • ${nextP?.name}'s turn`;
                 }
             }
-            // ================= MODE 2 & 3: BRIDGE AND TRICK-TAKING CLASSIC =================
-            else if (gameState.gameMode === 'bridge' || gameState.gameMode === 'trick') {
+            // 2. BRIDGE & TRICK-TAKING CLASSIC LOGIC
+            else if (gameState.gameMode === 'trick' || gameState.gameMode === 'bridge') {
                 if (!gameState.leadSuit) {
                     gameState.leadSuit = card.suit;
                 }
@@ -2364,15 +2293,15 @@
                     gameState.announcement = `Evaluating trick winner...`;
                     renderLaptopTableUI();
                     broadcastStateToAllClients();
-                    setTimeout(() => resolveTrickWinner(), 1350);
-                    return;
+                    setTimeout(() => resolveTrickWinner(), 1250);
+                    return true;
                 } else {
                     advanceTurn(1);
                     const nextP = gameState.players[gameState.turnIndex];
                     gameState.announcement = `${player.name} threw ${card.rank}${card.suit} • Now ${nextP.name}'s turn!`;
                 }
             }
-            // ================= MODE 4: CRAZY EIGHTS / SHEDDING =================
+            // 3. CRAZY EIGHTS / UNO SHEDDING LOGIC
             else if (gameState.gameMode === 'shedding') {
                 gameState.topDiscard = card;
                 gameState.leadSuit = chosenWildSuit || card.suit;
@@ -2384,26 +2313,25 @@
                 if (player.hand.length === 0) {
                     player.score += 10;
                     playSound('winTrick');
-                    const winMsg = `🏆 ${player.name} emptied their hand & won the round (+10 pts)!`;
-                    showRoundWinnerBanner(winMsg);
-                    gameState.announcement = winMsg;
+                    showRoundWinnerBanner(`🏆 ${player.name} emptied their hand & won (+10 pts)!`);
+                    gameState.announcement = `🎉 ${player.name} WON THE ROUND!`;
                     renderLaptopTableUI();
                     broadcastStateToAllClients();
-                    setTimeout(() => openWinnerModal(`🏆 ${player.avatar} ${player.name} Wins Crazy 8s!`, `Emptied hand first (+10 pts) • Total Score: ${player.score}`), 650);
-                    return;
+                    setTimeout(() => openWinnerModal(`🏆 ${player.name} Wins Crazy Eights!`), 900);
+                    return true;
                 }
 
                 let step = 1;
                 let effectNote = '';
                 if (card.rank === '8') {
-                    effectNote = ` (Wild Suit set to ${gameState.leadSuit}!)`;
+                    effectNote = ` (Wild Suit: ${gameState.leadSuit})`;
                 } else if (card.rank === 'K') {
                     gameState.turnDirection *= -1;
-                    effectNote = ` (Turn Direction Reversed!)`;
+                    effectNote = ` (Reversed!)`;
                     if (gameState.players.length === 2) step = 2;
                 } else if (card.rank === 'J') {
                     step = 2;
-                    effectNote = ` (Next Player Skipped!)`;
+                    effectNote = ` (Skipped!)`;
                 } else if (card.rank === '2') {
                     const victimIdx = getNextTurnIndex(1);
                     const victim = gameState.players[victimIdx];
@@ -2412,27 +2340,136 @@
                         if (gameState.deck.length > 0) victim.hand.push(gameState.deck.pop());
                     }
                     sortHand(victim.hand);
-                    effectNote = ` (${victim.name} drew +2 cards!)`;
+                    effectNote = ` (${victim.name} +2 cards!)`;
                 }
 
                 advanceTurn(step);
                 const nextP = gameState.players[gameState.turnIndex];
                 gameState.announcement = `${player.name} played ${card.rank}${card.suit}${effectNote} • ${nextP.name}'s turn`;
             }
-            // ================= MODE 5: TEEN PATTI SHOWDOWN =================
+            // 4. TEEN PATTI 3-CARD SHOWDOWN
             else if (gameState.gameMode === 'showdown') {
                 advanceTurn(1);
-                gameState.announcement = `${player.name} threw a card to the showdown pot!`;
+                gameState.announcement = `${player.name} threw a card to the Showdown pot!`;
                 const totalRemaining = gameState.players.reduce((sum, p) => sum + p.hand.length, 0);
                 if (totalRemaining === 0 && gameState.tableCards.length > 0) {
                     evaluateShowdownNow();
-                    return;
+                    return true;
                 }
             }
-            // ================= MODE 6: SANDBOX =================
+            // 5. FREE TABLE SANDBOX
             else {
                 advanceTurn(1);
                 gameState.announcement = `${player.name} threw ${faceDown ? 'a Face-Down Card' : card.rank + card.suit} to the table`;
+            }
+
+            syncSimulatorToActiveTurn();
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
+            triggerBotMoveIfNeeded();
+            return true;
+        }
+
+        function getActiveGetawayPlayersCount(justPlayedPlayerId) {
+            // Count players who still have cards OR have already thrown a card into the current trick
+            const thrownPlayerIds = new Set(gameState.tableCards.map(tc => tc.playerId));
+            if (justPlayedPlayerId) thrownPlayerIds.add(justPlayedPlayerId);
+            return gameState.players.filter(p => p.hand.length > 0 || thrownPlayerIds.has(p.id)).length;
+        }
+
+        function advanceTurnToNextActivePlayer() {
+            const n = gameState.players.length;
+            if (n === 0) return;
+            for (let step = 1; step <= n; step++) {
+                const candidateIdx = ((gameState.turnIndex + step * gameState.turnDirection) % n + n) % n;
+                if (gameState.players[candidateIdx].hand.length > 0) {
+                    gameState.turnIndex = candidateIdx;
+                    return;
+                }
+            }
+        }
+
+        function checkGetawayEscapesAndGameOver() {
+            gameState.players.forEach(p => {
+                if (p.hand.length === 0 && !p.gotAwayRank) {
+                    gameState.getawayFinishOrder += 1;
+                    p.gotAwayRank = gameState.getawayFinishOrder;
+                    const bonus = Math.max(2, (gameState.players.length - p.gotAwayRank + 1) * 3);
+                    p.score += bonus;
+                    showToast(`🏃 ${p.name} GOT AWAY #${p.gotAwayRank} (+${bonus} pts)!`, 'success');
+                }
+            });
+
+            const remainingWithCards = gameState.players.filter(p => p.hand.length > 0);
+            if (remainingWithCards.length <= 1 && gameState.players.length >= 2) {
+                const bhabhi = remainingWithCards[0];
+                const winner = [...gameState.players].sort((a, b) => (a.gotAwayRank || 99) - (b.gotAwayRank || 99))[0];
+                const msg = bhabhi
+                    ? `🏁 Game Over! ${winner.name} Got Away 1st! ${bhabhi.name} is left holding the cards (Bhabhi)!`
+                    : `🏁 Game Over! ${winner.name} Got Away 1st!`;
+                gameState.announcement = msg;
+                showRoundWinnerBanner(msg);
+                renderLaptopTableUI();
+                broadcastStateToAllClients();
+                setTimeout(() => openWinnerModal(`🏃 ${winner.name} Won Getaway!`), 900);
+                return true;
+            }
+            return false;
+        }
+
+        function resolveGetawayTrick(isThullaPenalty) {
+            if (gameState.tableCards.length === 0) {
+                gameState.resolvingTrick = false;
+                return;
+            }
+
+            // Find highest card of the led suit
+            const leadEntries = gameState.tableCards.filter(tc => tc.card.suit === gameState.leadSuit);
+            let highestLeadEntry = leadEntries[0] || gameState.tableCards[0];
+            leadEntries.forEach(entry => {
+                if (entry.card.value > highestLeadEntry.card.value) {
+                    highestLeadEntry = entry;
+                }
+            });
+
+            const targetIdx = gameState.players.findIndex(p => p.id === highestLeadEntry.playerId);
+            const targetPlayer = gameState.players[targetIdx];
+
+            if (isThullaPenalty && targetPlayer) {
+                // Target player must pick up all cards currently on the table!
+                const pickedCount = gameState.tableCards.length;
+                gameState.tableCards.forEach(tc => {
+                    targetPlayer.hand.push(tc.card);
+                });
+                targetPlayer.gotAwayRank = 0; // If they had just emptied their hand on the lead, they are back in!
+                sortHand(targetPlayer.hand);
+                showRoundWinnerBanner(`💥 THULLA! ${targetPlayer.name} picked up ${pickedCount} cards and leads next!`);
+                gameState.announcement = `${targetPlayer.name} picked up ${pickedCount} penalty cards! ${targetPlayer.name} leads next.`;
+            } else {
+                // Normal trick: sweep cards into Burn/Waste pile
+                gameState.burnPileCount += gameState.tableCards.length;
+                if (targetPlayer) {
+                    showRoundWinnerBanner(`🔥 Trick Burned! ${targetPlayer.name} had highest ${gameState.leadSuit} (${highestLeadEntry.card.rank}${highestLeadEntry.card.suit}) & leads!`);
+                    gameState.announcement = `Trick swept to Burn Pile (${gameState.burnPileCount} burned). ${targetPlayer.name} leads next!`;
+                }
+            }
+
+            gameState.tableCards = [];
+            gameState.leadSuit = null;
+            gameState.resolvingTrick = false;
+            gameState.firstTrickOfRound = false;
+
+            if (targetIdx !== -1) {
+                gameState.turnIndex = targetIdx;
+            }
+
+            if (checkGetawayEscapesAndGameOver()) {
+                return;
+            }
+
+            // If the trick winner has 0 cards left, pass lead to the next player who still has cards
+            if (gameState.players[gameState.turnIndex]?.hand.length === 0) {
+                advanceTurnToNextActivePlayer();
             }
 
             syncSimulatorToActiveTurn();
@@ -2451,23 +2488,20 @@
             gameState.turnIndex = getNextTurnIndex(steps);
         }
 
-        // Resolve Trick Winner in Bridge & Trick-Taking Modes
         function resolveTrickWinner() {
             if (gameState.tableCards.length === 0) {
                 gameState.resolvingTrick = false;
                 return;
             }
 
-            const hasActiveTrump = gameState.trumpSuit && gameState.trumpSuit !== 'NT';
             let winningEntry = gameState.tableCards[0];
-
             for (let i = 1; i < gameState.tableCards.length; i++) {
                 const candidate = gameState.tableCards[i];
                 const winCard = winningEntry.card;
                 const candCard = candidate.card;
 
-                const winIsTrump = hasActiveTrump && (winCard.suit === gameState.trumpSuit);
-                const candIsTrump = hasActiveTrump && (candCard.suit === gameState.trumpSuit);
+                const winIsTrump = gameState.trumpSuit && winCard.suit === gameState.trumpSuit;
+                const candIsTrump = gameState.trumpSuit && candCard.suit === gameState.trumpSuit;
 
                 if (candIsTrump && !winIsTrump) {
                     winningEntry = candidate;
@@ -2481,20 +2515,19 @@
             const winnerIndex = gameState.players.findIndex(p => p.id === winningEntry.playerId);
             if (winnerIndex !== -1) {
                 const winner = gameState.players[winnerIndex];
-                winner.tricksWon = (winner.tricksWon || 0) + 1;
                 winner.score += 1;
                 gameState.turnIndex = winnerIndex;
 
                 if (gameState.gameMode === 'bridge') {
                     if (winnerIndex % 2 === 0) {
-                        gameState.bridgeNSTricks += 1;
+                        gameState.bridge.nsTricks += 1;
                     } else {
-                        gameState.bridgeEWTricks += 1;
+                        gameState.bridge.ewTricks += 1;
                     }
                 }
 
                 playSound('winTrick');
-                showRoundWinnerBanner(`${winner.avatar} ${winner.name} wins the trick with ${winningEntry.card.rank}${winningEntry.card.suit}!`);
+                showRoundWinnerBanner(`${winner.avatar} ${winner.name} wins trick with ${winningEntry.card.rank}${winningEntry.card.suit}!`);
                 gameState.announcement = `${winner.name} won the trick! ${winner.name} leads next.`;
             }
 
@@ -2505,33 +2538,19 @@
             const cardsLeft = gameState.players.reduce((sum, p) => sum + p.hand.length, 0);
             if (cardsLeft === 0) {
                 if (gameState.gameMode === 'bridge') {
-                    const decl = gameState.bridgeDeclarer;
-                    const declWon = decl === 'NS' ? gameState.bridgeNSTricks : gameState.bridgeEWTricks;
-                    const target = gameState.bridgeTargetTricks;
-                    const made = declWon >= target;
-                    // Award bonus points to winning partnership
-                    gameState.players.forEach((p, idx) => {
-                        const pTeam = (idx % 2 === 0) ? 'NS' : 'EW';
-                        if ((made && pTeam === decl) || (!made && pTeam !== decl)) {
-                            p.score += 5;
-                        }
-                    });
+                    const dec = gameState.bridge.declarerTeam;
+                    const decTricks = dec === 'NS' ? gameState.bridge.nsTricks : gameState.bridge.ewTricks;
+                    const made = decTricks >= gameState.bridge.targetTricks;
                     const headline = made
-                        ? `🏆 Bridge Contract Made by Team ${decl}!`
-                        : `🛡️ Defenders Defeated Team ${decl}'s Contract!`;
-                    const sub = `Team N/S: ${gameState.bridgeNSTricks} tricks • Team E/W: ${gameState.bridgeEWTricks} tricks (Target: ${target})`;
-                    gameState.announcement = `${headline} (${sub})`;
-                    renderLaptopTableUI();
-                    broadcastStateToAllClients();
-                    setTimeout(() => openWinnerModal(headline, sub), 650);
-                    return;
+                        ? `🌉 Bridge Contract MADE! Team ${dec} won ${decTricks}/${gameState.bridge.targetTricks} tricks!`
+                        : `🌉 Contract Defeated! Team ${dec} took ${decTricks}/${gameState.bridge.targetTricks} tricks.`;
+                    gameState.announcement = headline;
+                    showRoundWinnerBanner(headline);
+                    setTimeout(() => openWinnerModal(headline), 900);
                 } else {
                     const topPlayer = [...gameState.players].sort((a, b) => b.score - a.score)[0];
-                    gameState.announcement = `🏁 Hand Complete! Winner: ${topPlayer.name} (${topPlayer.score} pts).`;
-                    renderLaptopTableUI();
-                    broadcastStateToAllClients();
-                    setTimeout(() => openWinnerModal(`🏆 ${topPlayer.avatar} ${topPlayer.name} Wins the Hand!`, `Total Score: ${topPlayer.score} Tricks`), 650);
-                    return;
+                    gameState.announcement = `🏁 Hand Complete! Leader: ${topPlayer.name} (${topPlayer.score} tricks).`;
+                    setTimeout(() => openWinnerModal(`🏆 ${topPlayer.name} Wins the Hand!`), 900);
                 }
             }
 
@@ -2606,15 +2625,15 @@
             });
 
             if (bestPlayer) {
-                bestPlayer.score += 5;
+                bestPlayer.score += 1;
                 playSound('winTrick');
-                const msg = `👑 ${bestPlayer.name} wins Showdown with ${bestEval.label}!`;
-                showRoundWinnerBanner(msg);
-                gameState.announcement = msg;
-                renderLaptopTableUI();
-                broadcastStateToAllClients();
-                setTimeout(() => openWinnerModal(`👑 ${bestPlayer.avatar} ${bestPlayer.name} Wins Showdown!`, `Winning Hand: ${bestEval.label} (+5 pts)`), 700);
+                showRoundWinnerBanner(`👑 ${bestPlayer.name} wins Showdown with ${bestEval.label}!`);
+                gameState.announcement = `Showdown Winner: ${bestPlayer.name} (${bestEval.label})!`;
+                setTimeout(() => openWinnerModal(`👑 ${bestPlayer.name} Wins with ${bestEval.label}!`), 900);
             }
+
+            renderLaptopTableUI();
+            broadcastStateToAllClients();
         }
 
         function replenishDeckFromDiscard() {
@@ -2629,7 +2648,7 @@
             if (pIndex === -1) return;
             const player = gameState.players[pIndex];
 
-            if (gameState.gameMode === 'shedding' && pIndex !== gameState.turnIndex) {
+            if (gameState.strictRules && gameState.gameMode === 'shedding' && pIndex !== gameState.turnIndex) {
                 showToast(`Wait for your turn to draw!`, 'error');
                 return;
             }
@@ -2674,10 +2693,17 @@
                 resolveTrickWinner();
                 return;
             }
-            gameState.burnPileCount += gameState.tableCards.length;
+            if (gameState.gameMode === 'getaway') {
+                resolveGetawayTrick(false);
+                return;
+            }
+            const activePlayer = gameState.players[gameState.turnIndex];
+            if (activePlayer) {
+                activePlayer.score += 1;
+                showToast(`Cleared table pile (+1 point to ${activePlayer.name})`, 'success');
+            }
             gameState.tableCards = [];
             gameState.leadSuit = null;
-            showToast('Cleared cards from the center table!', 'info');
             renderLaptopTableUI();
             broadcastStateToAllClients();
         }
@@ -2685,37 +2711,27 @@
         function showRoundWinnerBanner(text) {
             const toast = document.getElementById('roundResultToast');
             const label = document.getElementById('roundResultText');
+            if (!toast || !label) return;
             label.textContent = text;
             toast.classList.remove('hidden');
             toast.classList.add('inline-flex');
         }
 
         /*************************************************************************
-         * 8. SMART AI BOT TURN AUTOMATION (GETAWAY, BRIDGE, TRICK, SHEDDING)
+         * 8. SMART AI BOT TURN AUTOMATION
          *************************************************************************/
         function triggerBotMoveIfNeeded(forceCurrentPlayer = false) {
             clearTimeout(botTimer);
             if (gameState.resolvingTrick || gameState.players.length === 0) return;
 
             const currentPlayer = gameState.players[gameState.turnIndex];
-            if (!currentPlayer) return;
+            if (!currentPlayer || currentPlayer.hand.length === 0) return;
 
-            // In Getaway, if current player already escaped, advance immediately
-            if (gameState.gameMode === 'getaway' && (currentPlayer.escapedRank || currentPlayer.hand.length === 0)) {
-                if (!checkGetawayEscapes()) {
-                    advanceGetawayTurn(gameState.turnIndex);
-                    renderLaptopTableUI();
-                    broadcastStateToAllClients();
-                }
-                return;
-            }
-
-            if (currentPlayer.hand.length === 0) return;
-
-            if (currentPlayer.isBot || forceCurrentPlayer) {
+            const shouldAutoPlay = forceCurrentPlayer || (gameState.autoPlayBots && currentPlayer.isBot);
+            if (shouldAutoPlay) {
                 botTimer = setTimeout(() => {
                     executeSmartBotTurn(currentPlayer);
-                }, forceCurrentPlayer ? 150 : 900);
+                }, forceCurrentPlayer ? 150 : 950);
             }
         }
 
@@ -2733,10 +2749,15 @@
 
             let chosenCard = playable[0];
             if (gameState.gameMode === 'getaway') {
-                // If void in leadSuit (giving Thulla!), throw highest card to offload danger!
-                playable.sort((a, b) => b.value - a.value);
-                chosenCard = playable[0];
-            } else if (gameState.gameMode === 'bridge' || gameState.gameMode === 'trick') {
+                // If leading first trick with Ace of Spades, play A♠
+                const aceSpades = playable.find(c => c.rank === 'A' && c.suit === '♠');
+                if (gameState.firstTrickOfRound && aceSpades && !gameState.leadSuit) {
+                    chosenCard = aceSpades;
+                } else {
+                    playable.sort((a, b) => a.value - b.value);
+                    chosenCard = playable[0];
+                }
+            } else if (gameState.gameMode === 'trick' || gameState.gameMode === 'bridge') {
                 playable.sort((a, b) => b.value - a.value);
                 chosenCard = playable[0];
             } else if (gameState.gameMode === 'shedding') {
@@ -2757,7 +2778,7 @@
         }
 
         /*************************************************************************
-         * 9. RENDERING ENGINE: CENTRAL LAPTOP TABLE, REMOVE BUTTONS & RADIAL SEATS
+         * 9. RENDERING ENGINE: CENTRAL LAPTOP TABLE & RADIAL SEATS
          *************************************************************************/
         function getSeatCoordinates(index, total) {
             const angleDeg = 90 + (360 / total) * index;
@@ -2769,18 +2790,19 @@
             return { left: `${left.toFixed(1)}%`, top: `${top.toFixed(1)}%` };
         }
 
-        function renderCardHTML(card, sizeClass = '', extraClasses = '', onClickAttr = '') {
-            const suitColorClass = card.isRed ? 'red-suit' : 'black-suit';
+        function renderCardHTML(card, sizeClass = '', extraClasses = '', onClickAttr = '', badgeOverlayHTML = '') {
+            const suitColorClass = (card.isRed || card.suit === '♥' || card.suit === '♦') ? 'red-suit' : 'black-suit';
             return `
                 <div ${onClickAttr} class="playing-card ${sizeClass} ${suitColorClass} ${extraClasses}">
-                    <div class="flex flex-col items-start leading-none">
+                    ${badgeOverlayHTML}
+                    <div class="flex flex-col items-start leading-none pointer-events-none">
                         <span class="font-extrabold text-sm sm:text-base tracking-tighter">${card.rank}</span>
                         <span class="text-xs sm:text-sm">${card.suit}</span>
                     </div>
-                    <div class="self-center text-2xl sm:text-3xl my-auto leading-none select-none">
+                    <div class="self-center text-2xl sm:text-3xl my-auto leading-none select-none pointer-events-none">
                         ${card.suit}
                     </div>
-                    <div class="flex flex-col items-end leading-none rotate-180">
+                    <div class="flex flex-col items-end leading-none rotate-180 pointer-events-none">
                         <span class="font-extrabold text-sm sm:text-base tracking-tighter">${card.rank}</span>
                         <span class="text-xs sm:text-sm">${card.suit}</span>
                     </div>
@@ -2801,19 +2823,20 @@
             if (bridgeBar) {
                 bridgeBar.classList.toggle('hidden', gameState.gameMode !== 'bridge');
                 if (gameState.gameMode === 'bridge') {
-                    document.getElementById('bridgeNSTricks').textContent = gameState.bridgeNSTricks;
-                    document.getElementById('bridgeEWTricks').textContent = gameState.bridgeEWTricks;
+                    document.getElementById('bridgeNSTricks').textContent = gameState.bridge.nsTricks;
+                    document.getElementById('bridgeEWTricks').textContent = gameState.bridge.ewTricks;
                 }
             }
 
             if (gameState.gameMode === 'getaway') {
-                modeBadge.textContent = `🏃 Getaway (Bhabhi / Thulla) • Follow Suit or Give Pickup!`;
+                modeBadge.textContent = `🏃 Getaway (Bhabhi / Thulla)`;
                 leadBadge.textContent = `Lead Suit: ${gameState.leadSuit || 'Any'}`;
-                deckBadge.textContent = `Burn Pile: ${gameState.burnPileCount} cards`;
+                deckBadge.textContent = `Burned: ${gameState.burnPileCount}`;
             } else if (gameState.gameMode === 'bridge') {
-                modeBadge.textContent = `🌉 Bridge • Contract: Team ${gameState.bridgeDeclarer} (${gameState.bridgeTargetTricks}) • Trump: ${gameState.trumpSuit}`;
+                const trumpText = gameState.trumpSuit ? `${gameState.trumpSuit}` : 'No-Trump (NT)';
+                modeBadge.textContent = `🌉 Bridge • Trump: ${trumpText}`;
                 leadBadge.textContent = `Lead Suit: ${gameState.leadSuit || 'Any'}`;
-                deckBadge.textContent = `N/S: ${gameState.bridgeNSTricks} | E/W: ${gameState.bridgeEWTricks}`;
+                deckBadge.textContent = `N/S: ${gameState.bridge.nsTricks} | E/W: ${gameState.bridge.ewTricks}`;
             } else if (gameState.gameMode === 'trick') {
                 modeBadge.textContent = `♠️ Trick-Taking • Trump: ${gameState.trumpSuit}`;
                 leadBadge.textContent = `Lead Suit: ${gameState.leadSuit || 'Any'}`;
@@ -2832,7 +2855,7 @@
                 deckBadge.textContent = `Deck: ${gameState.deck.length}`;
             }
 
-            // Render Player Seats around the Casino Table (including Remove Player ✕ button!)
+            // Render Player Seats around the Casino Table
             const seatsContainer = document.getElementById('tableSeatsContainer');
             seatsContainer.innerHTML = '';
             const total = gameState.players.length;
@@ -2849,18 +2872,15 @@
                     miniBacksHTML += `<div class="w-3.5 h-5 rounded-sm playing-card-back inline-block -ml-1.5 first:ml-0" style="transform: rotate(${rot}deg);"></div>`;
                 }
 
-                let badgeType = player.connectionType === 'p2p'
+                const teamTag = gameState.gameMode === 'bridge'
+                    ? `<span class="text-[9px] px-1 rounded ${idx % 2 === 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${idx % 2 === 0 ? 'N/S' : 'E/W'}</span>`
+                    : '';
+
+                const badgeType = player.connectionType === 'p2p'
                     ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">📱 Live Phone</span>`
                     : player.isBot
                         ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">🤖 AI Bot</span>`
                         : `<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">📱 Sim Phone</span>`;
-
-                if (gameState.gameMode === 'bridge') {
-                    const teamBadge = (idx % 2 === 0)
-                        ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">N/S</span>`
-                        : `<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">E/W</span>`;
-                    badgeType = `${teamBadge} ${badgeType}`;
-                }
 
                 const seatEl = document.createElement('div');
                 seatEl.id = `seat_${player.id}`;
@@ -2870,10 +2890,10 @@
                 seatEl.onclick = () => selectSimPlayerTab(player.id);
 
                 seatEl.innerHTML = `
-                    <div class="relative bg-slate-900/95 backdrop-blur-md border-2 ${isTurn ? 'active-seat-ring' : isSelectedSim ? 'border-indigo-400' : 'border-slate-700'} rounded-2xl px-3 py-2 min-w-[138px] sm:min-w-[158px] shadow-xl group">
-                        <!-- Direct Remove Player Button (✕) on Laptop Seat -->
-                        <button onclick="removePlayerFromTable('${player.id}', event)" title="Remove ${player.name} from table" class=" -top-2 -right-2 absolute w-6 h-6 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold shadow-lg flex items-center justify-center border border-rose-300/50 transition transform hover:scale-110 z-30">
-                            <i class="fa-solid fa-xmark"></i>
+                    <div class="relative bg-slate-900/95 backdrop-blur-md border-2 ${isTurn ? 'active-seat-ring' : isSelectedSim ? 'border-indigo-400' : 'border-slate-700'} rounded-2xl px-3 py-2 min-w-[136px] sm:min-w-[154px] shadow-xl">
+                        <!-- Direct Remove Player Button on Seat -->
+                        <button onclick="removePlayerById('${player.id}', event)" title="Remove ${player.name}" class="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-md z-30">
+                            ✕
                         </button>
 
                         <!-- Floating Emoji Anchor -->
@@ -2885,23 +2905,21 @@
                                     ${player.avatar}
                                 </div>
                                 <div class="text-left">
-                                    <div class="font-bold text-xs text-white leading-tight truncate max-w-[78px]">${player.name}</div>
-                                    <div class="flex items-center gap-1 mt-0.5">${badgeType}</div>
+                                    <div class="font-bold text-xs text-white leading-tight truncate max-w-[78px]">${player.name} ${teamTag}</div>
+                                    ${badgeType}
                                 </div>
                             </div>
                             <div class="text-right">
-                                <span class="text-[10px] text-slate-400 block">${gameState.gameMode === 'bridge' || gameState.gameMode === 'trick' ? 'Tricks/Pts' : 'Score'}</span>
+                                <span class="text-[10px] text-slate-400 block">Score</span>
                                 <span class="font-display font-extrabold text-xs text-amber-400">${player.score}</span>
                             </div>
                         </div>
 
-                        <!-- Card Count / Escape Badge -->
                         <div class="mt-1.5 pt-1.5 border-t border-slate-800/90 flex items-center justify-between">
                             <div class="flex items-center pl-1">${miniBacksHTML}</div>
-                            ${player.escapedRank
-                                ? `<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🏃 GOT AWAY #${player.escapedRank}</span>`
-                                : `<span class="text-[10px] font-bold ${player.hand.length === 0 ? 'text-slate-500' : 'text-emerald-400'}">${player.hand.length} ${player.hand.length === 1 ? 'card' : 'cards'}</span>`
-                            }
+                            <span class="text-[10px] font-bold ${player.hand.length === 0 ? 'text-emerald-300' : 'text-emerald-400'}">
+                                ${player.gotAwayRank > 0 ? `🏃 Got Away #${player.gotAwayRank}` : `${player.hand.length} ${player.hand.length === 1 ? 'card' : 'cards'}`}
+                            </span>
                         </div>
                         ${player.lastHandLabel && gameState.gameMode === 'showdown' ? `<div class="mt-1 text-[10px] font-bold text-amber-300 text-center bg-amber-500/10 rounded py-0.5">${player.lastHandLabel}</div>` : ''}
                     </div>
@@ -2960,11 +2978,11 @@
         }
 
         /*************************************************************************
-         * 10. SPLIT-SCREEN VIRTUAL PHONE SIMULATOR DOCK
+         * 10. SPLIT-SCREEN VIRTUAL PHONE SIMULATOR & MOBILE THROW PIPELINE
          *************************************************************************/
         function toggleSimulatorDrawer() {
             const dock = document.getElementById('simulatorDock');
-            if (dock) dock.classList.toggle('hidden');
+            dock.classList.toggle('hidden');
         }
 
         function getActiveSimPlayerId() {
@@ -2977,8 +2995,7 @@
         function selectSimPlayerTab(playerId) {
             simState.activeSimPlayerId = playerId;
             simState.selectedCardId = null;
-            const wildPicker = document.getElementById('simWildSuitPicker');
-            if (wildPicker) wildPicker.classList.add('hidden');
+            document.getElementById('simWildSuitPicker').classList.add('hidden');
             renderSimulatorDockUI();
         }
 
@@ -3007,12 +3024,7 @@
 
             const activeId = getActiveSimPlayerId();
             const activePlayer = gameState.players.find(p => p.id === activeId) || gameState.players[0];
-            const handContainer = document.getElementById('simPhoneHandContainer');
-
-            if (!activePlayer) {
-                if (handContainer) handContainer.innerHTML = `<p class="text-xs text-slate-500 italic py-8">No players seated</p>`;
-                return;
-            }
+            if (!activePlayer) return;
 
             gameState.players.forEach((p, idx) => {
                 const isSelected = p.id === activePlayer.id;
@@ -3055,6 +3067,7 @@
             document.getElementById('btnSimDrawCard').classList.toggle('hidden', !(gameState.gameMode === 'shedding' || gameState.gameMode === 'sandbox'));
             document.getElementById('btnSimThrowFaceDown').classList.toggle('hidden', !(gameState.gameMode === 'sandbox' || gameState.gameMode === 'showdown'));
 
+            const handContainer = document.getElementById('simPhoneHandContainer');
             handContainer.innerHTML = '';
 
             if (activePlayer.hand.length === 0) {
@@ -3070,91 +3083,160 @@
             activePlayer.hand.forEach(card => {
                 const playable = isCardPlayable(activePlayer, card);
                 const isSelected = card.id === simState.selectedCardId;
-                const extra = `${isSelected ? 'selected-card' : ''} ${!playable && isMyTurn ? 'invalid-card' : ''}`;
+                const extra = `${isSelected ? 'selected-card' : ''} ${!playable && isMyTurn && gameState.strictRules ? 'invalid-card' : ''}`;
                 const cardWrapper = document.createElement('div');
                 cardWrapper.className = '-ml-3 first:ml-0 transition hover:z-30';
                 cardWrapper.innerHTML = renderCardHTML(
                     card,
                     'card-sm',
                     extra,
-                    `onclick="selectCardOnPhone('${card.id}', true)" ondblclick="selectCardOnPhone('${card.id}', true); throwSelectedCardFromPhone(true);"`
+                    `onclick="window.selectCardOnPhone('${card.id}', true)"`
                 );
                 handContainer.appendChild(cardWrapper);
             });
         }
 
+        // Global Card Selection & Double-Tap-to-Throw Handler
         function selectCardOnPhone(cardId, isSimulator) {
             if (isSimulator) {
+                if (simState.selectedCardId === cardId) {
+                    // Tapping an already-raised card throws it immediately!
+                    throwSelectedCardFromPhone(true, false);
+                    return;
+                }
                 simState.selectedCardId = cardId;
                 document.getElementById('simWildSuitPicker').classList.add('hidden');
                 renderSimulatorDockUI();
             } else {
+                if (clientState.selectedCardId === cardId) {
+                    // Tapping the raised card a second time on Mobile immediately throws it!
+                    mobileThrowCard(false);
+                    return;
+                }
                 clientState.selectedCardId = cardId;
                 document.getElementById('mobWildSuitPicker').classList.add('hidden');
-                renderMobileHandCardsOnly();
+                renderMobileHandCardsOnly(true);
             }
+        }
+        window.selectCardOnPhone = selectCardOnPhone;
+        window.mobileSelectCard = (cardId) => selectCardOnPhone(cardId, false);
+
+        // Dedicated Bulletproof Mobile Throw Function
+        function mobileThrowCard(faceDown = false) {
+            if (!clientState.myHand || clientState.myHand.length === 0) {
+                showToast('Your hand is empty! Ask the laptop host to Deal New Hand.', 'error');
+                return;
+            }
+
+            // If no card is currently selected, auto-select the first playable card (or first card)
+            let card = clientState.myHand.find(c => c.id === clientState.selectedCardId);
+            if (!card) {
+                card = clientState.myHand[0];
+                clientState.selectedCardId = card.id;
+            }
+
+            // If Crazy Eights and throwing an 8, prompt for Wild Suit first
+            if (gameState.gameMode === 'shedding' && card.rank === '8' && !faceDown) {
+                clientState.pendingWildCard = card.id;
+                document.getElementById('mobWildSuitPicker').classList.remove('hidden');
+                return;
+            }
+
+            dispatchMobileCardThrowPacket(card, null, faceDown);
+        }
+        window.mobileThrowCard = mobileThrowCard;
+
+        function dispatchMobileCardThrowPacket(card, chosenSuit = null, faceDown = false) {
+            if (!card) return;
+            playSound('cardThrow');
+
+            // Optimistic UI update on mobile so the button responds instantaneously!
+            clientState.myHand = clientState.myHand.filter(c => c.id !== card.id);
+            clientState.selectedCardId = clientState.myHand[0]?.id || null;
+            clientState.lastHandSignature = clientState.myHand.map(c => c.id).join(',');
+
+            const lastBadge = document.getElementById('mobLastThrownBadge');
+            if (lastBadge) {
+                lastBadge.classList.remove('hidden');
+                lastBadge.textContent = `Thrown: ${faceDown ? 'Face-Down' : card.rank + card.suit} 🚀`;
+            }
+            document.getElementById('mobHandCountBadge').textContent = `${clientState.myHand.length} Cards`;
+            renderMobileHandCardsOnly(true);
+            showToast(`🚀 Threw ${card.rank}${card.suit} to Laptop Table!`, 'success');
+
+            const actionId = 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+            const throwPayload = {
+                type: 'THROW_CARD',
+                actionId: actionId,
+                roomCode: clientState.roomCode,
+                playerId: clientState.myPlayerId,
+                playerName: clientState.myName,
+                cardId: card.id,
+                card: card,
+                chosenSuit: chosenSuit,
+                faceDown: faceDown
+            };
+
+            sendMobileActionToHost(throwPayload);
+
+            // Auto-retry sending up to 3 times every 900ms until PLAY_ACK arrives
+            clearInterval(pendingMobileThrowRetryTimer);
+            let retries = 0;
+            pendingMobileThrowRetryTimer = setInterval(() => {
+                retries++;
+                if (retries > 3) {
+                    clearInterval(pendingMobileThrowRetryTimer);
+                    pendingMobileThrowRetryTimer = null;
+                    return;
+                }
+                sendMobileActionToHost(throwPayload);
+            }, 900);
         }
 
         function throwSelectedCardFromPhone(isSimulator, faceDown = false) {
-            if (isSimulator) {
-                const player = gameState.players.find(p => p.id === getActiveSimPlayerId());
-                if (!player || !simState.selectedCardId) return;
-                const card = player.hand.find(c => c.id === simState.selectedCardId);
-                if (!card) return;
-
-                if (gameState.gameMode === 'shedding' && card.rank === '8' && !faceDown) {
-                    simState.pendingWildCard = card.id;
-                    document.getElementById('simWildSuitPicker').classList.remove('hidden');
-                    return;
-                }
-                processPlayerCardThrow(player.id, card.id, null, faceDown);
-            } else {
-                if (!clientState.selectedCardId) {
-                    showToast('Tap a card in your hand first!', 'error');
-                    return;
-                }
-                const card = clientState.myHand.find(c => c.id === clientState.selectedCardId);
-                if (!card) return;
-
-                if (gameState.gameMode === 'shedding' && card.rank === '8' && !faceDown) {
-                    clientState.pendingWildCard = card.id;
-                    document.getElementById('mobWildSuitPicker').classList.remove('hidden');
-                    return;
-                }
-
-                sendMobileActionToHost({
-                    type: 'THROW_CARD',
-                    roomCode: clientState.roomCode,
-                    playerId: clientState.myPlayerId,
-                    cardId: card.id,
-                    faceDown: faceDown
-                });
+            if (!isSimulator) {
+                mobileThrowCard(faceDown);
+                return;
             }
+            const player = gameState.players.find(p => p.id === getActiveSimPlayerId());
+            if (!player || player.hand.length === 0) return;
+
+            let card = player.hand.find(c => c.id === simState.selectedCardId);
+            if (!card) {
+                card = player.hand.find(c => isCardPlayable(player, c)) || player.hand[0];
+                simState.selectedCardId = card.id;
+            }
+
+            if (gameState.gameMode === 'shedding' && card.rank === '8' && !faceDown) {
+                simState.pendingWildCard = card.id;
+                document.getElementById('simWildSuitPicker').classList.remove('hidden');
+                return;
+            }
+            processPlayerCardThrow(player.id, card.id, null, faceDown, card, false);
         }
+        window.throwSelectedCardFromPhone = throwSelectedCardFromPhone;
 
         function confirmWildSuit(chosenSuit, isSimulator) {
             if (isSimulator) {
                 document.getElementById('simWildSuitPicker').classList.add('hidden');
                 const player = gameState.players.find(p => p.id === getActiveSimPlayerId());
                 if (player && simState.pendingWildCard) {
-                    processPlayerCardThrow(player.id, simState.pendingWildCard, chosenSuit, false);
+                    const card = player.hand.find(c => c.id === simState.pendingWildCard);
+                    processPlayerCardThrow(player.id, simState.pendingWildCard, chosenSuit, false, card, false);
                     simState.pendingWildCard = null;
                 }
             } else {
                 document.getElementById('mobWildSuitPicker').classList.add('hidden');
                 if (clientState.pendingWildCard) {
-                    sendMobileActionToHost({
-                        type: 'THROW_CARD',
-                        roomCode: clientState.roomCode,
-                        playerId: clientState.myPlayerId,
-                        cardId: clientState.pendingWildCard,
-                        chosenSuit: chosenSuit,
-                        faceDown: false
-                    });
+                    const card = clientState.myHand.find(c => c.id === clientState.pendingWildCard);
+                    if (card) {
+                        dispatchMobileCardThrowPacket(card, chosenSuit, false);
+                    }
                     clientState.pendingWildCard = null;
                 }
             }
         }
+        window.confirmWildSuit = confirmWildSuit;
 
         function sendMobileActionToHost(payload) {
             const packet = {
@@ -3164,7 +3246,7 @@
             if (localBroadcast) {
                 try { localBroadcast.postMessage(packet); } catch (e) {}
             }
-            publishToAllMqttRelays(clientState.roomCode, packet);
+            publishMqttMessage(clientState.roomCode, packet);
             if (hostConn && hostConn.open) {
                 try { hostConn.send(packet); } catch (e) {}
             }
@@ -3177,9 +3259,10 @@
                 playerId: clientState.myPlayerId
             });
         }
+        window.requestMobileDrawCard = requestMobileDrawCard;
 
         /*************************************************************************
-         * 11. FULL-SCREEN MOBILE PLAYER CONTROLLER UI RENDERING
+         * 11. FULL-SCREEN MOBILE PLAYER CONTROLLER UI RENDERING (NO DOM WIPE)
          *************************************************************************/
         function renderMobileControllerUI(syncData) {
             gameState.gameMode = syncData.gameMode;
@@ -3194,25 +3277,30 @@
             const banner = document.getElementById('mobTurnBanner');
             if (isMyTurn) {
                 banner.className = 'py-3 px-4 rounded-2xl text-center font-extrabold text-sm tracking-wide shadow-lg bg-emerald-600 text-white animate-pulse';
-                banner.innerHTML = `<i class="fa-solid fa-hand-pointer mr-1"></i> YOUR TURN! SELECT & THROW A CARD`;
+                banner.innerHTML = `<i class="fa-solid fa-hand-pointer mr-1"></i> YOUR TURN! TAP THROW CARD BELOW`;
             } else {
                 banner.className = 'py-3 px-4 rounded-2xl text-center font-bold text-xs tracking-wide bg-slate-900 border border-slate-800 text-slate-300';
-                banner.textContent = `Waiting for ${syncData.turnPlayerName || 'next player'}...`;
+                banner.textContent = `Turn: ${syncData.turnPlayerName || 'Next Player'} (Tap Throw to play)`;
             }
 
             document.getElementById('btnMobDrawCard').classList.toggle('hidden', !(syncData.gameMode === 'shedding' || syncData.gameMode === 'sandbox'));
             document.getElementById('btnMobThrowBlind').classList.toggle('hidden', !(syncData.gameMode === 'sandbox' || syncData.gameMode === 'showdown'));
 
-            renderMobileHandCardsOnly();
+            // Only rebuild hand DOM if the actual cards in hand changed!
+            const newSig = clientState.myHand.map(c => c.id).join(',');
+            if (newSig !== clientState.lastHandSignature) {
+                clientState.lastHandSignature = newSig;
+                renderMobileHandCardsOnly(true);
+            }
         }
 
-        function renderMobileHandCardsOnly() {
+        function renderMobileHandCardsOnly(forceRebuild = false) {
             const container = document.getElementById('mobHandContainer');
             if (!container) return;
             container.innerHTML = '';
 
             if (clientState.myHand.length === 0) {
-                container.innerHTML = `<p class="text-sm text-slate-500 italic py-8">Your hand is empty! Waiting for next deal...</p>`;
+                container.innerHTML = `<p class="text-sm text-slate-400 font-semibold py-8">🎉 Hand Empty! Waiting for next deal...</p>`;
                 return;
             }
 
@@ -3223,12 +3311,16 @@
             clientState.myHand.forEach(card => {
                 const isSelected = card.id === clientState.selectedCardId;
                 const wrapper = document.createElement('div');
-                wrapper.className = 'transition';
+                wrapper.className = 'transition relative';
+                const tapAgainBadge = isSelected
+                    ? `<span class="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-extrabold text-[9px] whitespace-nowrap shadow">Tap to Throw 🚀</span>`
+                    : '';
                 wrapper.innerHTML = renderCardHTML(
                     card,
                     'card-lg',
                     isSelected ? 'selected-card' : '',
-                    `onclick="selectCardOnPhone('${card.id}', false)"`
+                    `onclick="window.mobileSelectCard('${card.id}')"`,
+                    tapAgainBadge
                 );
                 container.appendChild(wrapper);
             });
@@ -3294,18 +3386,14 @@
             const qrContainer = document.getElementById('qrcodeContainer');
             qrContainer.innerHTML = '';
             try {
-                if (typeof QRCode !== 'undefined') {
-                    new QRCode(qrContainer, {
-                        text: joinUrl,
-                        width: 170,
-                        height: 170,
-                        colorDark: '#0f172a',
-                        colorLight: '#ffffff',
-                        correctLevel: QRCode.CorrectLevel.M
-                    });
-                } else {
-                    qrContainer.innerHTML = `<div class="p-4 text-xs text-slate-800 font-mono">${joinUrl}</div>`;
-                }
+                new QRCode(qrContainer, {
+                    text: joinUrl,
+                    width: 170,
+                    height: 170,
+                    colorDark: '#0f172a',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
             } catch (e) {
                 qrContainer.innerHTML = `<div class="p-4 text-xs text-slate-800 font-mono">${joinUrl}</div>`;
             }
@@ -3346,7 +3434,6 @@
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
-            if (!container) return;
             const toast = document.createElement('div');
             const colorClasses = type === 'error'
                 ? 'bg-red-950/95 border-red-500/50 text-red-200'
@@ -3365,19 +3452,6 @@
                 setTimeout(() => toast.remove(), 300);
             }, 3200);
         }
-
-        // Explicitly bind critical functions to global window scope
-        window.dealNewRound = dealNewRound;
-        window.dealOneMoreCardToAll = dealOneMoreCardToAll;
-        window.clearTableTrick = clearTableTrick;
-        window.removePlayer = removePlayer;
-        window.removeAllVirtualPlayers = removeAllVirtualPlayers;
-        window.openManagePlayersModal = openManagePlayersModal;
-        window.closeManagePlayersModal = closeManagePlayersModal;
-        window.startLaptopHost = startLaptopHost;
-        window.startMobileClient = startMobileClient;
-        window.startInstantSplitScreenDemo = startInstantSplitScreenDemo;
-        window.manualResyncMobile = manualResyncMobile;
     </script>
 </body>
 </html>
